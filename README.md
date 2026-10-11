@@ -37,7 +37,9 @@ Apple controls device trust, Developer Mode, signing, and provisioning. A free P
 1. Open **Model**, choose **Qwen 3 · 0.6B**, and tap **Download model**.
 2. Tap **Load model**. Return to **Station** and tap **Start serving**.
 3. Allow **Local Network** access if iOS asks.
-4. Under **Connect**, copy the base URL and API key into your client.
+4. Under **Connect**, scan the QR code, tap **Share link**, or copy the base URL into your client. Copy the API key separately.
+
+The QR code is generated on the phone and contains only its current API base URL. It updates when the Wi-Fi address or port changes. Other devices need the same local network and an API client configured with MOI's key; the link is an API endpoint, not a browser chat page.
 
 Keep MOI in the foreground. Serving keeps the screen awake. Locking the phone or leaving the app stops serving; reopen it and tap Start serving again. Use a trusted local network: this prototype serves plain HTTP, so it does not encrypt API traffic. Do not expose it through router port forwarding.
 

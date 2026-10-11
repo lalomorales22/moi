@@ -37,9 +37,15 @@ The memory guard was then verified on the physical phone: the same Gemma startup
 
 The final signed Release build was installed and launched through `./start.sh install`. Its binary was checked to exclude both Debug startup environment overrides. The USB test proxy was stopped; normal clients connect directly over Wi-Fi using the phone's own Keychain API key. The eight shared-core tests still pass after the guard change.
 
+The user confirmed the normal Release build shows LIVE after loading Qwen and starting the station. A direct Wi-Fi check reached that build and confirmed that missing credentials and the retired Debug key both receive HTTP 401.
+
 ## Still to verify
 
 Foreground/background transitions, thermal behavior over longer runs, Wi-Fi changes, and the model download UI. Gemma 4 needs a different artifact or a phone with more memory. Gemma 3 270M remains untested because downloading it requires gated repository access.
+
+## QR link sharing
+
+Connect now renders a local QR code for the current API base URL and offers the system Share link action. Apple's Vision barcode decoder recovered the exact original URL from two rendered codes, including a different host and port. The updated Release app built, installed, and launched successfully; the user confirmed the QR is visible on the phone. A camera scan from a second physical device and sending through the share sheet have not been tested. API keys are excluded from the QR and shared URL.
 
 ## Reproduce
 

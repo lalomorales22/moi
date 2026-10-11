@@ -22,6 +22,10 @@ import MOICore
     var selected: ModelSpec { ModelSpec.catalog.first { $0.id == selectedID } ?? ModelSpec.catalog[0] }
     var modelsDirectory: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Models") }
     var endpoint: String { "http://\(stats.addresses.first ?? "PHONE_IP"):\(port)" }
+    var apiBaseURL: URL? {
+        guard let address = stats.addresses.first, let number = UInt16(port), number >= 1024 else { return nil }
+        return URL(string: "http://\(address):\(number)/v1")
+    }
     var isWorking: Bool { !operation.isEmpty }
     var installed: Bool { FileManager.default.fileExists(atPath: file(for: selected).path) }
     func compatibilityIssue(for model: ModelSpec) -> String? {

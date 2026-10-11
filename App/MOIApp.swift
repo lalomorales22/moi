@@ -146,8 +146,18 @@ struct ContentView: View {
                 eyebrow("API BASE URL")
                 Text(model.endpoint + "/v1").font(.system(.body, design: .monospaced)).textSelection(.enabled)
                 if model.stats.addresses.isEmpty { Text("Join Wi-Fi to get a LAN address.").font(.caption).foregroundStyle(.orange) }
+                if let url = model.apiBaseURL {
+                    LinkQRCode(value: url.absoluteString)
+                    Text("Scan to copy this address into your API client. Same Wi-Fi; API key required.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        Button("Copy URL") { UIPasteboard.general.string = url.absoluteString }
+                        ShareLink(item: url) { Label("Share link", systemImage: "square.and.arrow.up") }
+                    }.buttonStyle(.bordered)
+                    Text("The QR code contains only the URL, never your API key.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 HStack { Text("Port"); Spacer(); TextField("8080", text: $model.port).keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 90).disabled(model.serving) }
-                Button("Copy base URL") { UIPasteboard.general.string = model.endpoint + "/v1" }.buttonStyle(.bordered)
                 Text("Bonjour discovery: _moi._tcp").font(.caption.monospaced()).foregroundStyle(.secondary)
             }
             card {
@@ -216,5 +226,27 @@ struct ContentView: View {
             Text(value).font(.system(size: 27, weight: .semibold, design: .rounded)).minimumScaleFactor(0.6).lineLimit(1)
             Text(unit).font(.caption).foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct LinkQRCode: View {
+    let value: String
+    @State private var image: CGImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(decorative: image, scale: 1)
+                    .resizable().interpolation(.none).scaledToFit()
+                    .frame(maxWidth: 240)
+                    .padding(12).background(.white, in: RoundedRectangle(cornerRadius: 16))
+                    .accessibilityLabel("QR code for the MOI API URL")
+            } else {
+                Text("QR code unavailable. Copy or share the URL below.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .task(id: value) { image = QRCode.image(for: value) }
     }
 }
