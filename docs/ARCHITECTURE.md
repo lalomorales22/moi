@@ -36,4 +36,4 @@ Official [Swift integration](https://developers.google.com/edge/litert-lm/swift)
 
 ## Later
 
-TLS or a separately configured private tunnel; additional proven model choices; sustained thermal benchmarks; fleet view. Public GitHub publication follows user review.
+TLS or a separately configured private tunnel; additional proven model choices; sustained thermal benchmarks; fleet view.

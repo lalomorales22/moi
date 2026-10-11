@@ -10,11 +10,15 @@ This is an early prototype. Qwen 3 0.6B and Gemma 3 270M run on a physical iPhon
 
 ## One-command setup from a Mac
 
-Connect the iPhone by USB, unlock it, and run this from the repository folder:
+Connect the iPhone by USB, unlock it, then clone the repository and start setup:
 
 ```sh
+git clone https://github.com/lalomorales22/moi.git
+cd moi
 ./start.sh
 ```
+
+If you already have the repository, run `./start.sh` from its folder.
 
 This is the complete setup, including the model. `./start.sh install` does the same thing. It:
 
@@ -171,4 +175,4 @@ python3 scripts/smoke-api.py http://127.0.0.1:8081
 
 Mac benchmarks do not establish phone performance. Debug builds also support `MOI_TEST_MODEL` and `MOI_TEST_API_KEY` launch environment variables for physical-device testing, plus `MOI_TEST_DOWNLOAD=1` to exercise the phone downloader when the model is absent. Those builds write a secret-free `Documents/MOI-test-status.json` receipt. For pairing validation only, `MOI_TEST_PAIRING_EXPORT=1` additionally exports the short-lived invitation to a separate app-container file; the main key is never exported. All four overrides are excluded from Release builds.
 
-See [architecture and limitations](docs/ARCHITECTURE.md). Public GitHub publication is intentionally a later step.
+See [architecture and limitations](docs/ARCHITECTURE.md) and [validation results](docs/VALIDATION.md). Source: [lalomorales22/moi](https://github.com/lalomorales22/moi).
