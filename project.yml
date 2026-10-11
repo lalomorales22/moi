@@ -1,0 +1,38 @@
+name: MOI
+options:
+  bundleIdPrefix: com.moi
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  MOI:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: 1
+targets:
+  MOI:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes: [Assets.xcassets]
+    dependencies:
+      - package: MOI
+        product: MOICore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.moi.phone
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: App/Info.plist
+schemes:
+  MOI:
+    build:
+      targets:
+        MOI: all
+    run:
+      config: Debug

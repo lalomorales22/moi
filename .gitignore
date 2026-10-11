@@ -1,0 +1,16 @@
+.cache/
+.build/
+build/
+models/
+.env
+.env.*
+!.env.example
+*.xcuserstate
+xcuserdata/
+.DS_Store
+*.log
+MOI.xcodeproj/
+*.mobileprovision
+__pycache__/
+*.pyc
+.swiftpm/xcode/
