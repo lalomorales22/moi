@@ -37,11 +37,15 @@ Apple controls device trust, Developer Mode, signing, and provisioning. A free P
 1. Open **Model**, choose **Qwen 3 · 0.6B**, and tap **Download model**.
 2. Tap **Load model**. Return to **Station** and tap **Start serving**.
 3. Allow **Local Network** access if iOS asks.
-4. Under **Connect**, scan the QR code from another device on the same Wi-Fi, or use **Share link**. It opens MOI’s browser page.
-5. On the iPhone running MOI, tap **Reveal API key**. Type the full key into the browser page on your other device, including `moi_`, then tap **Connect**. **Show what I’m typing** lets you check the characters. Use **Copy API key** if you can paste between devices.
-6. Send a prompt. Each browser prompt starts a fresh conversation and allows up to 128 output tokens. For other clients, use **Copy API base URL** under Client Settings and supply the same key.
+4. Open **Connect**. From another phone on the same Wi-Fi, scan the QR and open its link. Pairing happens automatically; there is no API key to type.
+5. Send a prompt. Each browser prompt starts a fresh conversation and allows up to 128 output tokens. Refreshing the page keeps that tab paired.
+6. For other API clients, use **Copy API base URL** under Client Settings and **Copy API key**. Manual browser connection remains available; **Reveal API key** shows the full key when needed.
 
-The QR code contains only the browser URL and updates when the Wi-Fi address or port changes. The key stays separate. The iPhone hides the revealed key when you change tabs or leave the app. Line wrapping does not add characters to the key. The browser keeps its key only in page memory and clears it when you disconnect or leave; MOI does not save it in cookies or browser storage. Previously shared `/v1` links also open the browser page.
+Each QR contains a random, single-use invitation that expires after two minutes. The phone refreshes it after use or expiry. The invitation lives in the URL fragment, which the browser removes before exchanging it for a separate browser credential. The main API key is never included in the QR or issued by pairing. Plain **Copy website link** and **Share website** links contain no invitation and require manual authentication.
+
+Paired browsers retain their temporary credential in that tab’s session storage, including across page refreshes. Access lasts up to eight hours, or until MOI stops/restarts, the browser disconnects, or you tap **Disconnect paired browsers** on the phone. MOI accepts at most 16 paired sessions at a time. Invitations and credentials are kept only in the phone process’s memory. Pairing does not add transport encryption; use trusted home Wi-Fi.
+
+Manual API keys are held only in browser memory, never saved by MOI to browser storage. The iPhone hides its revealed key when you change tabs or leave the app. Manual browser entry ignores whitespace and normalizes capitalization for MOI’s hexadecimal keys; their full length is 68 characters including `moi_`. Previously shared `/v1` links still open the browser page.
 
 Keep MOI in the foreground. Serving keeps the screen awake. Locking the phone or leaving the app stops serving; reopen it and tap Start serving again. Use a trusted local network: this prototype serves plain HTTP, so it does not encrypt API traffic. Do not expose it through router port forwarding.
 
@@ -74,7 +78,7 @@ The files go into the app’s `Documents/Models` folder. They can also be transf
 
 ## API
 
-Every API route below requires `Authorization: Bearer YOUR_MOI_KEY`. The browser page and its static assets are public; they contain no key or private device data. Browser API requests are accepted from MOI’s own origin with a valid key. Foreign browser origins are rejected.
+Every inference/status API route below requires `Authorization: Bearer YOUR_MOI_KEY` or a valid paired-browser credential. The browser page and its static assets are public; they contain no key or private device data. Browser API requests are accepted from MOI’s own origin with a valid key. Foreign browser origins are rejected. `POST /moi/pair` accepts a valid one-use invitation only from the phone’s own browser origin and issues a separate session token. `POST /moi/unpair` revokes the supplied browser token.
 
 | Method | Route | Result |
 |---|---|---|
@@ -109,6 +113,7 @@ Tools, images, audio, embeddings, JSON response schemas, third-party browser ori
 ./start.sh doctor
 ./start.sh build
 swift test
+node --test Tests/WebClientTests.cjs
 ```
 
 `project.yml` generates the Xcode project. The Swift package contains the shared parser, authentication, HTTP server, model catalog, and LiteRT-LM engine. `App/` contains the actual SwiftUI app.
@@ -127,6 +132,6 @@ In another terminal with the same key set:
 python3 scripts/smoke-api.py http://127.0.0.1:8081
 ```
 
-Mac benchmarks do not establish phone performance. Debug builds also support `MOI_TEST_MODEL` and `MOI_TEST_API_KEY` launch environment variables for physical-device testing, plus `MOI_TEST_DOWNLOAD=1` to exercise the phone downloader when the model is absent. Those builds write a secret-free `Documents/MOI-test-status.json` receipt. These overrides are excluded from Release builds.
+Mac benchmarks do not establish phone performance. Debug builds also support `MOI_TEST_MODEL` and `MOI_TEST_API_KEY` launch environment variables for physical-device testing, plus `MOI_TEST_DOWNLOAD=1` to exercise the phone downloader when the model is absent. Those builds write a secret-free `Documents/MOI-test-status.json` receipt. For pairing validation only, `MOI_TEST_PAIRING_EXPORT=1` additionally exports the short-lived invitation to a separate app-container file; the main key is never exported. All four overrides are excluded from Release builds.
 
 See [architecture and limitations](docs/ARCHITECTURE.md). Public GitHub publication is intentionally a later step.

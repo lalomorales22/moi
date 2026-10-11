@@ -12,16 +12,17 @@
 <body>
   <main>
     <header><div><a class="wordmark" href="/">MOI</a><p>mom’s old iPhone</p></div><span id="badge" class="badge">PHONE REACHED</span></header>
-    <section class="intro"><p class="eyebrow">SMALL PHONE. REAL INFERENCE.</p><h1>Say hello to<br>an old friend.</h1><p>You reached the phone. Enter its API key to try the model running on it.</p></section>
+    <section class="intro"><p class="eyebrow">SMALL PHONE. REAL INFERENCE.</p><h1>Say hello to<br>an old friend.</h1><p>Scan the QR in MOI → Connect to pair automatically. Then try the model running on the phone.</p></section>
     <section class="card" aria-labelledby="connect-title">
       <div class="section-head"><h2 id="connect-title">Connect to MOI</h2><button id="disconnect" class="quiet" hidden>Disconnect</button></div>
       <form id="connect-form" autocomplete="off">
         <label for="api-key">API key</label>
         <div class="key-row"><input id="api-key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Type or paste the key from MOI" required><button id="connect-button" type="submit">Connect <span aria-hidden="true">↗</span></button></div>
         <button id="reveal-key" type="button" class="quiet reveal-key" aria-pressed="false">Show what I’m typing</button>
-        <p class="hint">On the iPhone running MOI: Connect → Reveal API key. Type the full key here, including moi_, or use Copy API key if you can paste between devices. The key clears when you disconnect or leave this page.</p>
+        <p class="hint">Manual connection is optional. Scan the current QR on the iPhone to skip typing. If using an API key, open MOI → Connect → Reveal API key.</p>
       </form>
-      <p id="connection-status" role="status" aria-live="polite">Your API key is separate from the QR link.</p>
+      <p id="connection-status" role="status" aria-live="polite">Scan the current QR on the iPhone to connect automatically.</p>
+    <p class="hint">QR pairing stays in this browser tab for up to 8 hours, including refreshes. Stopping MOI or tapping Disconnect ends access.</p>
     </section>
     <section class="card" aria-labelledby="prompt-title">
       <h2 id="prompt-title">Try a prompt</h2>

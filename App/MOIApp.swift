@@ -144,20 +144,34 @@ struct ContentView: View {
 
     private var connection: some View {
         page {
-            title("Meet your server.", subtitle: "Same Wi-Fi. A URL. Your private key.")
+            title("Meet your server.", subtitle: "Same Wi-Fi. Scan. Connected.")
             card {
-                eyebrow("OPEN MOI IN A BROWSER")
+                eyebrow("SCAN TO CONNECT")
                 Text(model.endpoint).font(.system(.body, design: .monospaced)).textSelection(.enabled)
                 if model.stats.addresses.isEmpty { Text("Join Wi-Fi to get a LAN address.").font(.caption).foregroundStyle(.orange) }
-                if let url = model.browserURL {
+                if let url = model.pairingURL {
                     LinkQRCode(value: url.absoluteString)
-                    Text("Scan from another device to open MOI’s chat page. Enter the API key there to connect.")
+                    Text("Scan from another device on your Wi-Fi. It pairs automatically—no key to type.")
+                        .font(.subheadline).foregroundStyle(mint)
+                    if let expiry = model.server.pairingInvitation?.expiresAt {
+                        HStack { Text("Code refreshes in"); Text(expiry, style: .timer).monospacedDigit() }
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text("One scan per code. Expires after two minutes. The QR refreshes after use and never contains your main API key.")
                         .font(.caption).foregroundStyle(.secondary)
+                    LabeledContent("Paired browsers", value: String(model.server.pairedBrowserCount))
+                    Button("Disconnect paired browsers") { model.server.revokePairedBrowsers() }
+                        .buttonStyle(.bordered).disabled(model.server.pairedBrowserCount == 0)
+                } else {
+                    Text("Load a model and start serving to show the pairing QR.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                if let url = model.browserURL {
                     HStack {
-                        Button("Copy link") { UIPasteboard.general.string = url.absoluteString }
-                        ShareLink(item: url) { Label("Share link", systemImage: "square.and.arrow.up") }
+                        Button("Copy website link") { UIPasteboard.general.string = url.absoluteString }
+                        ShareLink(item: url) { Label("Share website", systemImage: "square.and.arrow.up") }
                     }.buttonStyle(.bordered)
-                    Text("The QR code contains only the URL, never your API key.")
+                    Text("The plain website link needs a key. Use the QR for automatic pairing.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 HStack { Text("Port"); Spacer(); TextField("8080", text: $model.port).keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 90).disabled(model.serving) }
@@ -255,7 +269,7 @@ private struct LinkQRCode: View {
                     .resizable().interpolation(.none).scaledToFit()
                     .frame(maxWidth: 240)
                     .padding(12).background(.white, in: RoundedRectangle(cornerRadius: 16))
-                    .accessibilityLabel("QR code for the MOI browser page")
+                    .accessibilityLabel("Single-use QR code to pair with MOI")
             } else {
                 Text("QR code unavailable. Copy or share the URL below.")
                     .font(.caption).foregroundStyle(.secondary)

@@ -27,6 +27,7 @@ import MOICore
         return URL(string: "http://\(address):\(number)/v1")
     }
     var browserURL: URL? { apiBaseURL?.deletingLastPathComponent() }
+    var pairingURL: URL? { browserURL.flatMap { server.pairingInvitation?.url(base: $0) } }
     var isWorking: Bool { !operation.isEmpty }
     var installed: Bool { FileManager.default.fileExists(atPath: file(for: selected).path) }
     func compatibilityIssue(for model: ModelSpec) -> String? {
@@ -72,7 +73,7 @@ import MOICore
     }
     func file(for model: ModelSpec) -> URL { modelsDirectory.appendingPathComponent(model.filename) }
     func sample() {
-        stats = DeviceStats.read(); revision += 1
+        stats = DeviceStats.read(); server.refreshPairing(); revision += 1
         #if DEBUG
         if ProcessInfo.processInfo.environment["MOI_TEST_MODEL"] != nil {
             let report: [String: Any] = ["endpoint": endpoint, "loaded_model": loadedID ?? "", "operation": operation,
@@ -81,6 +82,10 @@ import MOICore
                                        "thermal": stats.thermal, "api": server.stats,
                                        "model_choices": availableModels.map(\.id), "download_progress": downloadProgress ?? 0]
             try? APIJSON.encode(report).write(to: modelsDirectory.deletingLastPathComponent().appendingPathComponent("MOI-test-status.json"), options: .atomic)
+            // Explicit test-only export of the short-lived invitation, never the main key.
+            if ProcessInfo.processInfo.environment["MOI_TEST_PAIRING_EXPORT"] == "1", let url = pairingURL {
+                try? Data(url.absoluteString.utf8).write(to: modelsDirectory.deletingLastPathComponent().appendingPathComponent("MOI-test-pairing-url.txt"), options: [.atomic, .completeFileProtection])
+            }
         }
         #endif
     }

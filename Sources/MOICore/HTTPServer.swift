@@ -28,6 +28,24 @@ public struct RequestEvent: Identifiable, Sendable {
     private var clients: [UUID: HTTPClient] = [:]
     private var startedAt: Date?
     private var key = ""
+    private let pairing = BrowserPairing()
+    public var pairingInvitation: BrowserInvitation? { running ? pairing.invitation : nil }
+    public var pairedBrowserCount: Int { pairing.sessionCount }
+
+    public func refreshPairing() {
+        guard running else { return }
+        do { if try pairing.refresh() { onChange?() } }
+        catch { lastError = error.localizedDescription; onChange?() }
+    }
+    public func revokePairedBrowsers() {
+        pairing.reset()
+        refreshPairing()
+        onChange?()
+    }
+    private func isOwnBrowserOrigin(_ request: HTTPRequest) -> Bool {
+        guard let origin = request.headers["origin"] else { return false }
+        return browserOrigins().contains(origin) && origin == "http://\(request.headers["host"] ?? "")"
+    }
     private let engine: InferenceEngine
 
     public init(engine: InferenceEngine) { self.engine = engine }
@@ -36,6 +54,8 @@ public struct RequestEvent: Identifiable, Sendable {
         guard listener == nil else { return }
         guard !busy else { throw MOIError(409, "Waiting for inference to stop.") }
         guard key.utf8.count >= 24, port >= 1024, let endpoint = NWEndpoint.Port(rawValue: port) else { throw MOIError(400, "Use a key with at least 24 characters and a port from 1024 to 65535.") }
+        pairing.reset()
+        try pairing.refresh()
         self.key = key; self.modelID = modelID
         let parameters = NWParameters.tcp
         parameters.includePeerToPeer = false
@@ -77,6 +97,7 @@ public struct RequestEvent: Identifiable, Sendable {
 
     public func stop() {
         listener?.cancel(); listener = nil; running = false; status = "Offline"
+        pairing.reset()
         let current = Array(clients.values)
         for client in current { client.close() }
         onChange?()
@@ -84,7 +105,7 @@ public struct RequestEvent: Identifiable, Sendable {
 
     public var stats: [String: Any] {
         var values: [String: Any] = ["serving": running, "busy": busy, "model": modelID, "active_connections": connectionCount,
-                                  "completed_requests": completed, "failed_requests": failed,
+                                  "completed_requests": completed, "failed_requests": failed, "paired_browsers": pairedBrowserCount,
                                   "uptime_seconds": running ? Int(Date().timeIntervalSince(startedAt ?? Date())) : 0]
         if let lastGeneration {
             values["last_duration_seconds"] = lastGeneration.elapsed
@@ -97,7 +118,7 @@ public struct RequestEvent: Identifiable, Sendable {
 
     private func record(_ request: HTTPRequest, client: HTTPClient, status: Int) {
         // Never retain Authorization, prompts, or responses in the activity feed.
-        let knownPaths = ["/", "/v1", "/v1/", "/index.html", "/moi-web.js", "/moi-web.css", "/moi-icon.svg", "/health", "/moi/stats", "/v1/models", "/v1/chat/completions"]
+        let knownPaths = ["/", "/v1", "/v1/", "/index.html", "/moi-web.js", "/moi-web.css", "/moi-icon.svg", "/health", "/moi/stats", "/moi/pair", "/moi/unpair", "/v1/models", "/v1/chat/completions"]
         let route = knownPaths.contains(request.path) ? request.path : "[unknown route]"
         events.insert(RequestEvent(peer: client.peer, route: request.method.prefix(8) + " " + route, status: status), at: 0)
         events = Array(events.prefix(30)); onChange?()
@@ -111,13 +132,22 @@ public struct RequestEvent: Identifiable, Sendable {
                 try await client.respond(200, body: asset.body, contentType: asset.contentType)
                 return
             }
-            guard APIJSON.authorized(request.headers["authorization"], key: key) else { throw MOIError(401, "A valid bearer key is required.") }
-            if let origin = request.headers["origin"] {
-                guard browserOrigins().contains(origin), origin == "http://\(request.headers["host"] ?? "")" else {
-                    throw MOIError(403, "Use MOI's own browser page or a server-side API client.")
-                }
+            if request.method == "POST", request.path == "/moi/pair" {
+                guard isOwnBrowserOrigin(request) else { throw MOIError(403, "Open the pairing link in MOI's own browser page.") }
+                guard request.headers["content-type"]?.lowercased().split(separator: ";").first == "application/json" else { throw MOIError(415, "Use Content-Type: application/json.") }
+                let token = try pairing.exchange(request.headers["authorization"])
+                try await client.respond(200, body: APIJSON.encode(["token": token, "token_type": "Bearer", "expires_in": Int(BrowserPairing.sessionLifetime), "model": modelID]))
+                return
+            }
+            let authorization = request.headers["authorization"]
+            guard APIJSON.authorized(authorization, key: key) || pairing.authorized(authorization) else { throw MOIError(401, "A valid bearer key is required.") }
+            if request.headers["origin"] != nil, !isOwnBrowserOrigin(request) {
+                throw MOIError(403, "Use MOI's own browser page or a server-side API client.")
             }
             switch (request.method, request.path) {
+            case ("POST", "/moi/unpair"):
+                pairing.revoke(authorization)
+                try await client.respond(200, body: APIJSON.encode(["disconnected": true]))
             case ("GET", "/health"):
                 try await client.respond(200, body: APIJSON.encode(["status": "ok", "model": modelID, "busy": busy]))
             case ("GET", "/moi/stats"):
