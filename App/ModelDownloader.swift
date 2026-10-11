@@ -10,7 +10,7 @@ final class ModelDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Se
     private var cancelled = false
     private var expectedBytes: Int64 = 0
 
-    func download(_ model: ModelSpec, token: String) async throws -> URL {
+    func download(_ model: ModelSpec) async throws -> URL {
         try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { continuation in
                 lock.lock(); defer { lock.unlock() }
@@ -22,8 +22,7 @@ final class ModelDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Se
                 configuration.timeoutIntervalForResource = 3600
                 let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
                 self.session = session
-                var request = URLRequest(url: model.url)
-                if !token.isEmpty { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+                let request = URLRequest(url: model.url)
                 let task = session.downloadTask(with: request)
                 self.task = task; task.resume()
             }
@@ -43,7 +42,8 @@ final class ModelDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Se
     }
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         guard let response = downloadTask.response as? HTTPURLResponse, response.statusCode == 200 else {
-            finish(.failure(MOIError(400, "Download refused. For gated models, accept the model terms on Hugging Face and supply a read token."))); return
+            let status = (downloadTask.response as? HTTPURLResponse)?.statusCode ?? 0
+            finish(.failure(MOIError(400, "Download failed (HTTP \(status)). Try again or check the download source. These models do not require an account."))); return
         }
         let destination = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".litertlm")
         do { try FileManager.default.moveItem(at: location, to: destination); finish(.success(destination)) }

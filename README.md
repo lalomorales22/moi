@@ -6,7 +6,7 @@ MOI is a native iPhone app that runs a small language model on the phone and ser
 
 The dashboard shows app memory, available memory, battery, thermal pressure, connected clients, completed requests, and measured generation speed. Prompts and responses are not saved by MOI. No cloud inference service is used.
 
-This is an early prototype. Qwen 3 0.6B runs on a physical iPhone 11 and passes real Wi-Fi chat and streaming API checks. See [validation](docs/VALIDATION.md) for measurements and remaining limits.
+This is an early prototype. Qwen 3 0.6B and Gemma 3 270M run on a physical iPhone 11 and pass real Wi-Fi chat and streaming API checks. See [validation](docs/VALIDATION.md) for measurements and remaining limits.
 
 ## Install from a Mac
 
@@ -48,12 +48,14 @@ Keep MOI in the foreground. Serving keeps the screen awake. Locking the phone or
 | Model | Download | Backend | Purpose |
 |---|---:|---|---|
 | Qwen 3 0.6B INT4 | 345 MB | Metal | Tested on iPhone 11; no Hugging Face account required |
-| Gemma 3 270M Q8 | 304 MB | CPU, 2 threads | Optional; requires model terms acceptance and a Hugging Face read token |
-| Gemma 4 E2B | 2.01 GB | Metal | Exceeded iPhone 11 memory limit; app permits trials only on phones with 6+ GB RAM |
+| Gemma 3 270M Q8 | 304 MB | CPU, 2 threads | Public mirror; no account or token required |
+| Gemma 4 E2B | 2.01 GB | Metal | Hidden on iPhone 11; experimental option only on phones with 6+ GB RAM |
 
 File size is not working memory. A model advertised as “E2B” can contain more stored parameters than its effective parameter count. The 64 GB storage capacity is not the phone’s RAM.
 
-The tested Gemma 4 bundle was terminated during loading on iPhone 11 near its 2.1 GB app memory limit. MOI blocks downloading/loading that bundle on phones below 6 GB physical RAM. The 6 GB floor is a conservative trial policy, not a claim of compatibility; phones above that floor remain untested. A smaller Gemma 4 conversion may be worth investigating later.
+The tested Gemma 4 bundle was terminated during loading on iPhone 11 near its 2.1 GB app memory limit. MOI hides it from the model picker and blocks downloading/loading it on phones below 6 GB physical RAM. The 6 GB floor is a conservative trial policy, not a claim of compatibility; phones above that floor remain untested. A smaller Gemma 4 conversion may be worth investigating later.
+
+Gemma 3 downloads from the public [72fstudio mirror](https://huggingface.co/72fstudio/gemma-3-270m-it). Its pinned artifact has the same size and SHA-256 as the [original LiteRT conversion](https://huggingface.co/litert-community/gemma-3-270m-it). MOI verifies those bytes before loading. No Hugging Face login or token is required, and the original Gemma terms still apply. The app links both the original model card and its download source.
 
 Models use pinned revisions and SHA-256 checksums. MOI verifies downloads before accepting them and verifies again when loading. Model cards and applicable terms are linked inside the app. Models retain their own licenses; they are not relicensed by MOI.
 
@@ -61,11 +63,12 @@ For USB transfer instead of downloading on the phone, install and open MOI once,
 
 ```sh
 ./start.sh push-model qwen3-0.6b
+./start.sh push-model gemma-3-270m
 ```
 
 For a suitable newer phone, `./start.sh push-model gemma-4-e2b` copies the larger experimental bundle. The phone still applies its memory compatibility check before loading it.
 
-The files go into the app’s `Documents/Models` folder. They can also be transferred through Finder file sharing. Optional gated downloads use `HF_TOKEN` from your shell; the script does not store it.
+The files go into the app’s `Documents/Models` folder. They can also be transferred through Finder file sharing. All catalog downloads are public and require no access token.
 
 ## API
 
@@ -122,6 +125,6 @@ In another terminal with the same key set:
 python3 scripts/smoke-api.py http://127.0.0.1:8081
 ```
 
-Mac benchmarks do not establish phone performance. Debug builds also support `MOI_TEST_MODEL` and `MOI_TEST_API_KEY` launch environment variables for physical-device testing. Those builds write a secret-free `Documents/MOI-test-status.json` receipt. These overrides are excluded from Release builds.
+Mac benchmarks do not establish phone performance. Debug builds also support `MOI_TEST_MODEL` and `MOI_TEST_API_KEY` launch environment variables for physical-device testing, plus `MOI_TEST_DOWNLOAD=1` to exercise the phone downloader when the model is absent. Those builds write a secret-free `Documents/MOI-test-status.json` receipt. These overrides are excluded from Release builds.
 
 See [architecture and limitations](docs/ARCHITECTURE.md). Public GitHub publication is intentionally a later step.

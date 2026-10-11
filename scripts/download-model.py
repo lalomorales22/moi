@@ -3,7 +3,6 @@
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import sys
@@ -42,12 +41,9 @@ def main():
         print(f'Already verified: {target}')
         return
     url = f"https://huggingface.co/{model['repo']}/resolve/{model['revision']}/{model['filename']}"
-    headers = {}
-    if os.getenv('HF_TOKEN'):
-        headers['Authorization'] = f"Bearer {os.environ['HF_TOKEN']}"
     partial = target.with_suffix('.partial')
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as response, partial.open('wb') as output:
+        with urllib.request.urlopen(url, timeout=60) as response, partial.open('wb') as output:
             received = 0
             last_percent = -1
             while chunk := response.read(1024 * 1024):
@@ -64,7 +60,7 @@ def main():
         partial.replace(target)
         print(f'Verified: {target}')
     except urllib.error.HTTPError as error:
-        print(f'Download returned HTTP {error.code}. For gated models, accept the repository terms and set HF_TOKEN to a read token.', file=sys.stderr)
+        print(f'Download returned HTTP {error.code}. Retry or check the model source; catalog downloads do not require an account.', file=sys.stderr)
         sys.exit(1)
     finally:
         partial.unlink(missing_ok=True)

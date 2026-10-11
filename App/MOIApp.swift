@@ -92,16 +92,13 @@ struct ContentView: View {
     private var setup: some View {
         page {
             title("A brain for MOI.", subtitle: "Download once. Run on this phone.")
-            ForEach(ModelSpec.catalog) { spec in
+            ForEach(model.availableModels) { spec in
                 Button { model.selectedID = spec.id } label: {
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: model.selectedID == spec.id ? "checkmark.circle.fill" : "circle").foregroundStyle(mint).font(.title2)
                         VStack(alignment: .leading, spacing: 8) {
                             Text(spec.name).font(.headline).foregroundStyle(.white)
                             Text(spec.summary).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
-                            if model.compatibilityIssue(for: spec) != nil {
-                                Text("More RAM required").font(.caption).foregroundStyle(.orange)
-                            }
                             if model.loadedID == spec.id { Text("LOADED").font(.caption.monospaced()).foregroundStyle(mint) }
                         }
                         Spacer(minLength: 0)
@@ -112,7 +109,7 @@ struct ContentView: View {
             card {
                 eyebrow("SETUP")
                 Text(String(format: "%.1f GB free · %d GB physical memory", model.stats.freeGB, model.stats.totalGB)).font(.subheadline)
-                Text(model.compatibilityIssue(for: model.selected) ?? "Qwen 3 is the tested starter for iPhone 11. Larger models need more memory; other phones still need physical-device testing.")
+                Text("Models that exceed this phone’s memory limit are hidden. Downloads do not need an account or access token.")
                     .font(.subheadline).foregroundStyle(.secondary)
                 if let progress = model.downloadProgress {
                     ProgressView(value: progress).tint(mint)
@@ -129,11 +126,12 @@ struct ContentView: View {
                 Text("1,024-token context · up to 256 output tokens · one request at a time").font(.caption).foregroundStyle(.secondary)
             }
             card {
-                DisclosureGroup("Optional Hugging Face access") {
-                    SecureField("Read token for gated downloads", text: $model.hfToken).textInputAutocapitalization(.never).autocorrectionDisabled().textFieldStyle(.roundedBorder)
-                    Text("If a model requires access, accept its terms first. This token is used only for the download and is not saved.").font(.caption).foregroundStyle(.secondary)
+                Link("Model card and terms ↗", destination: model.selected.modelCardURL)
+                Link("Download source ↗", destination: URL(string: "https://huggingface.co/\(model.selected.repository)")!)
+                if model.selected.id == "gemma-3-270m" {
+                    Text("Gemma 3 uses a public community mirror with the same SHA-256 checksum as the original. Gemma’s terms still apply.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                Link("Model card and terms ↗", destination: URL(string: "https://huggingface.co/\(model.selected.repository)")!)
                 Text("Model downloads are verified with SHA-256 before loading. You can also copy a catalog model into MOI → Models using Finder file sharing.").font(.caption).foregroundStyle(.secondary)
             }
         }

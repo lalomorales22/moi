@@ -11,7 +11,6 @@ import MOICore
     @Published var notice = "Choose a model to get this phone working."
     @Published var error: String?
     @Published var key = ""
-    @Published var hfToken = ""
     @Published var port = "8080"
     @Published var stats = DeviceStats()
     @Published var serving = false
@@ -20,6 +19,7 @@ import MOICore
     private var job: Task<Void, Never>?
     private var foreground = true
     var selected: ModelSpec { ModelSpec.catalog.first { $0.id == selectedID } ?? ModelSpec.catalog[0] }
+    var availableModels: [ModelSpec] { ModelSpec.catalog.filter { compatibilityIssue(for: $0) == nil } }
     var modelsDirectory: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Models") }
     var endpoint: String { "http://\(stats.addresses.first ?? "PHONE_IP"):\(port)" }
     var apiBaseURL: URL? {
@@ -45,6 +45,7 @@ import MOICore
         }
         server.canGenerate = { ProcessInfo.processInfo.thermalState == .nominal || ProcessInfo.processInfo.thermalState == .fair }
         sample()
+        if !availableModels.contains(where: { $0.id == selectedID }) { selectedID = availableModels.first?.id ?? "qwen3-0.6b" }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in Task { @MainActor in self?.sample() } }
         #if DEBUG
         // Physical-device validation only. Release builds contain no startup override.
@@ -53,7 +54,14 @@ import MOICore
            let testKey = environment["MOI_TEST_API_KEY"], testKey.count >= 24 {
             key = testKey
             selectedID = testModel
-            Task { self.load() }
+            Task {
+                if environment["MOI_TEST_DOWNLOAD"] == "1", !self.installed {
+                    self.download()
+                    while self.isWorking { try? await Task.sleep(nanoseconds: 100_000_000) }
+                    guard self.installed else { return }
+                }
+                self.load()
+            }
         }
         #endif
     }
@@ -65,7 +73,8 @@ import MOICore
             let report: [String: Any] = ["endpoint": endpoint, "loaded_model": loadedID ?? "", "operation": operation,
                                        "error": error ?? server.lastError ?? "", "app_memory_mb": stats.memoryMB,
                                        "available_memory_mb": stats.availableMB, "physical_memory_gb": stats.totalGB,
-                                       "thermal": stats.thermal, "api": server.stats]
+                                       "thermal": stats.thermal, "api": server.stats,
+                                       "model_choices": availableModels.map(\.id), "download_progress": downloadProgress ?? 0]
             try? APIJSON.encode(report).write(to: modelsDirectory.deletingLastPathComponent().appendingPathComponent("MOI-test-status.json"), options: .atomic)
         }
         #endif
@@ -77,14 +86,12 @@ import MOICore
         guard stats.freeGB > Double(model.bytes) / 1_000_000_000 + 0.5 else { error = "Free some storage first; leave room for the model and temporary files."; return }
         operation = "Downloading"; downloadProgress = 0; error = nil
         UIApplication.shared.isIdleTimerDisabled = true
-        let token = hfToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        hfToken = ""
         job = Task {
             defer { operation = ""; downloadProgress = nil; job = nil; UIApplication.shared.isIdleTimerDisabled = server.running }
             do {
                 let downloader = ModelDownloader()
                 downloader.progress = { [weak self] value in Task { @MainActor in self?.downloadProgress = value } }
-                let temp = try await downloader.download(model, token: token)
+                let temp = try await downloader.download(model)
                 defer { try? FileManager.default.removeItem(at: temp) }
                 operation = "Verifying model"
                 try await Task.detached(priority: .utility) { try model.verify(file: temp) }.value

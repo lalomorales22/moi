@@ -8,7 +8,7 @@
 - Real Qwen 3 0.6B INT4 inference on the Mac passes authenticated API checks, invalid-request rejection, non-streamed chat, streamed chat with `[DONE]`, token accounting, and metrics.
 - Real Gemma 4 E2B inference on the Mac passes the same API checks.
 - Runtime logs identify Apple's M1 / Metal backend during the Mac runs.
-- Both model files match the pinned upstream byte counts and SHA-256 checksums.
+- Qwen 3, Gemma 3, and Gemma 4 model files match their pinned upstream byte counts and SHA-256 checksums.
 - Python examples compile; the installer passes Bash syntax checking.
 
 The Mac is an M1 with 8 GB RAM. Its results are separate from the physical-device results below.
@@ -39,9 +39,13 @@ The final signed Release build was installed and launched through `./start.sh in
 
 The user confirmed the normal Release build shows LIVE after loading Qwen and starting the station. A direct Wi-Fi check reached that build and confirmed that missing credentials and the retired Debug key both receive HTTP 401.
 
+Gemma 3 270M was subsequently downloaded without authentication from the pinned public 72fstudio mirror. Its 304,005,120 bytes and SHA-256 match the original LiteRT community artifact. The native phone downloader, checksum verification, and CPU loading path all completed successfully through a Debug startup invocation. Gemma 3 passed direct Wi-Fi API authentication, validation, non-streaming chat, SSE completion, and token accounting. Its 11-token greeting measured 34.2 decode tokens/sec, first content in 0.189 sec, and 0.450 sec total generation time. Sampled footprint was 398 MiB after loading and 411 MiB after inference, with nominal thermal state. These remain short smoke results, not sustained benchmarks.
+
+The device receipt confirms the visible model choices on this 4 GB phone are `qwen3-0.6b` and `gemma-3-270m`. Gemma 4 is hidden as well as blocked. The app's access-token input was removed because all current catalog downloads are public. Model licenses still apply. The updated Release build was installed and launched, with all three Debug startup override strings verified absent from its binary.
+
 ## Still to verify
 
-Foreground/background transitions, thermal behavior over longer runs, Wi-Fi changes, and the model download UI. Gemma 4 needs a different artifact or a phone with more memory. Gemma 3 270M remains untested because downloading it requires gated repository access.
+Foreground/background transitions, thermal behavior over longer runs, Wi-Fi changes, and manual interaction with the download progress/cancel UI. The underlying phone download path has been exercised successfully for Gemma 3. Gemma 4 needs a different artifact or a phone with more memory.
 
 ## QR link sharing
 

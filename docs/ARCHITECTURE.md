@@ -6,7 +6,7 @@ Turn a spare iPhone into a small, local inference appliance. The phone downloads
 
 - SwiftUI dashboard and model setup, iOS 17+.
 - Google's LiteRT-LM 0.18.0, pinned with verified binary checksums through Swift Package Manager.
-- Qwen 3 0.6B INT4 for the first test, optional gated Gemma 3 270M, and Gemma 4 E2B GPU as the larger experiment. Only text inputs in v0.1.
+- Qwen 3 0.6B INT4 and Gemma 3 270M, both publicly downloadable without credentials. Gemma 3 uses a pinned mirror with the original conversion's SHA-256. Gemma 4 E2B GPU is hidden on devices below the 6 GB RAM trial floor. Only text inputs in v0.1.
 - Network.framework HTTP/1.1 listener with a bearer key, bounded requests and connections, one generation at a time, Bonjour discovery, and cancellation.
 - `/health`, `/v1/models`, `/v1/chat/completions`, `/moi/stats`. OpenAI-compatible text chat subset, including SSE streaming. Unsupported features return explicit errors.
 - Shared core also runs on macOS for real engine/API testing. A Mac result is not an iPhone performance result.
