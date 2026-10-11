@@ -18,6 +18,7 @@ import MOICore
     private var timer: Timer?
     private var job: Task<Void, Never>?
     private var foreground = true
+    private var installerAttempted = false
     var selected: ModelSpec { ModelSpec.catalog.first { $0.id == selectedID } ?? ModelSpec.catalog[0] }
     var availableModels: [ModelSpec] { ModelSpec.catalog.filter { compatibilityIssue(for: $0) == nil } }
     var modelsDirectory: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Models") }
@@ -72,6 +73,71 @@ import MOICore
         #endif
     }
     func file(for model: ModelSpec) -> URL { modelsDirectory.appendingPathComponent(model.filename) }
+
+    func prepareInstallerSetup() {
+        let requestFile = modelsDirectory.deletingLastPathComponent().appendingPathComponent("MOI-setup.json")
+        guard !installerAttempted, !isWorking, !serving, foreground,
+              UIApplication.shared.applicationState == .active,
+              FileManager.default.fileExists(atPath: requestFile.path) else { return }
+        installerAttempted = true
+        let request: InstallationRequest
+        do {
+            let size = try requestFile.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= 4096 else { throw MOIError(400, "Installer request is too large. Rerun setup from the Mac.") }
+            request = try InstallationRequest.parse(Data(contentsOf: requestFile))
+        } catch { self.error = error.localizedDescription; return }
+        selectedID = request.modelID
+        let model = selected
+        operation = "Preparing MOI"; error = nil
+        UIApplication.shared.isIdleTimerDisabled = true
+        job = Task {
+            defer { operation = ""; job = nil; UIApplication.shared.isIdleTimerDisabled = server.running }
+            do {
+                if let issue = compatibilityIssue(for: model) { throw MOIError(400, issue) }
+                try installationReceipt(request, state: "loading", message: "Verifying and loading \(model.name)…")
+                try await engine.load(spec: model, file: file(for: model))
+                try Task.checkCancellation()
+                guard foreground else { throw CancellationError() }
+                loadedID = model.id
+                UserDefaults.standard.set(model.id, forKey: "modelID")
+                try installationReceipt(request, state: "checking", message: "Running a short inference check on this iPhone…")
+                let check = try ChatRequest.parse(APIJSON.encode(["model": model.id, "messages": [["role": "user", "content": "Say hello."]], "max_tokens": 8]))
+                let result = try await engine.generate(check) { _ in }
+                guard !result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    throw MOIError(500, "The model loaded but returned an empty test reply. Rerun setup or choose Gemma 3.")
+                }
+                try Task.checkCancellation()
+                guard foreground else { throw CancellationError() }
+                try server.start(port: 8080, key: key, modelID: model.id)
+                try installationReceipt(request, state: "starting", message: "Allow Local Network access and keep MOI open on Wi-Fi.")
+                for _ in 0..<600 {
+                    try Task.checkCancellation()
+                    guard foreground else { throw CancellationError() }
+                    if server.running && !stats.addresses.isEmpty { break }
+                    try await Task.sleep(nanoseconds: 200_000_000)
+                }
+                guard server.running, !stats.addresses.isEmpty else {
+                    throw MOIError(503, "Join Wi-Fi and allow MOI's Local Network access, then rerun setup from the Mac.")
+                }
+                try installationReceipt(request, state: "ready", message: "MOI is ready. Open Connect and scan the QR to chat.", verified: true)
+                try FileManager.default.removeItem(at: requestFile)
+            } catch {
+                server.stop()
+                let message = error is CancellationError ? "Setup was interrupted. Keep MOI open and rerun setup from the Mac." : error.localizedDescription
+                self.error = message
+                try? installationReceipt(request, state: "error", message: message)
+            }
+        }
+    }
+
+    private func installationReceipt(_ request: InstallationRequest, state: String, message: String, verified: Bool = false) throws {
+        notice = message
+        let receipt: [String: Any] = ["id": request.id, "state": state, "model": request.modelID,
+                                     "message": message, "inference_verified": verified, "serving": server.running,
+                                     "endpoint": browserURL?.absoluteString ?? ""]
+        let destination = modelsDirectory.deletingLastPathComponent().appendingPathComponent("MOI-setup-result.json")
+        try APIJSON.encode(receipt).write(to: destination, options: [.atomic, .completeFileProtection])
+    }
     func sample() {
         stats = DeviceStats.read(); server.refreshPairing(); revision += 1
         #if DEBUG
@@ -158,7 +224,9 @@ import MOICore
     }
     func cancelDownload() { job?.cancel() }
     func sceneChanged(_ phase: ScenePhase) {
-        foreground = phase == .active
+        // Permission dialogs make the scene inactive without backgrounding the app.
+        foreground = phase != .background
+        if phase == .active { prepareInstallerSetup() }
         if phase == .background {
             server.stop(); job?.cancel()
             Task { await engine.cancel() }

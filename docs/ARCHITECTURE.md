@@ -20,7 +20,11 @@ The app must remain in the foreground. Serving disables automatic screen lock. B
 
 Keep the context at 1,024 tokens initially. Process one generation at a time. Reject new inference while the phone reports serious or critical thermal pressure. Memory pressure stops serving and releases the engine once active work has drained.
 
-The install script can build, sign, push, and launch. Apple still requires an account in Xcode, device trust, Developer Mode, and a valid provisioning profile. Free personal signing needs periodic renewal. There is no supported way for a script to silently bypass those steps.
+`./start.sh` delegates to a standard-library Python installer. It checks Xcode and the connected phone, selects a valid signing identity, obtains a verified XcodeGen binary if needed, downloads/verifies the chosen model, signs/installs the Release app, and merges the model into its Documents/Models folder over USB. Fresh installations use a team-specific bundle ID; existing installations and saved per-device IDs are reused. A repository lock prevents overlapping installers from corrupting shared build/download state.
+
+The installer writes `Documents/MOI-setup.json` with a version, random run ID, and an allowlisted model ID. There are no credentials, URLs, or arbitrary file paths in that request. The foreground app verifies/loads the model, runs an eight-token inference smoke check, starts the listener, and waits for a LAN address. It writes a non-secret `MOI-setup-result.json` receipt carrying the same run ID. Successful setup consumes the request, so subsequent launches do not start serving automatically. The Mac requires the matching ready receipt and an accessible chat page before reporting success. Failed checks and timeouts exit nonzero; the phone API key is never exported. This explicit production setup path is separate from Debug-only test overrides.
+
+Apple still requires an account in Xcode, device trust, Developer Mode, and a valid provisioning profile. The script explains those owner actions and supports retrying after they are completed. Free personal signing needs periodic renewal. There is no supported way for a script to silently bypass those steps.
 
 ## Model evidence (2026-10-10)
 

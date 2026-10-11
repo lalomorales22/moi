@@ -8,6 +8,7 @@ import MOICore
         WindowGroup {
             ContentView(model: model)
                 .preferredColorScheme(.dark)
+                .task { model.prepareInstallerSetup() }
                 .onChange(of: phase) { _, value in model.sceneChanged(value) }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in model.memoryWarning() }
         }
@@ -58,6 +59,7 @@ struct ContentView: View {
                     Text(model.loadedID.flatMap { id in ModelSpec.catalog.first { $0.id == id }?.name } ?? "No model loaded")
                 }.font(.subheadline).foregroundStyle(mint)
                 Text(model.notice).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if model.isWorking { HStack { ProgressView().tint(mint); Text(model.operation).font(.caption) } }
                 Button(action: { if model.loadedID == nil { tab = 1 } else { model.toggleServer() } }) {
                     HStack {
                         Text(model.loadedID == nil ? "Set up this phone" : model.serving ? "Stop serving" : "Start serving")

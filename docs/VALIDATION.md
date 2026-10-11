@@ -77,6 +77,16 @@ The shipping JavaScript was also run in a DOM test harness using real fetch call
 
 The signed Release build was installed and launched successfully. All four bundled web assets match the tested source. All four Debug startup override strings and the pairing-export path are absent from its binary. The mobile layout check used desktop Chrome emulation; physical mobile Safari keyboard behavior and hands-on use of the new chat remain to be verified. The previously confirmed physical QR pairing flow is preserved.
 
+## Complete installer
+
+The default `./start.sh` was run end to end against the physical iPhone 11 using its normal signing identity and a Release build. It detected and preserved the existing `com.moi.phone` installation, reused the verified Qwen download, built/signed/installed the app, copied the model over USB, staged a one-time request, and launched MOI. Without manual Load/Start taps, the app verified and loaded Qwen, generated an eight-token inference check, and started serving. The Mac read the receipt for that exact run and successfully fetched the LAN chat page before printing “MOI is ready” and exiting zero. A repeat run reused the saved bundle mapping. No API key or pairing credential was exported.
+
+An initial run reached ready on the phone but the Mac's final page check incorrectly requested a doubled slash. Normalizing the endpoint fixed this; a regression test now checks the exact URL and that an unreachable page remains a failure. The XcodeGen fallback was separately exercised by hiding the installed command from lookup: the actual pinned 2.46.0 archive downloaded, passed SHA-256 verification, extracted, and reported the expected version.
+
+Twelve Swift tests pass, including setup-request size/version/UUID/model validation. Nine Python installer tests pass: device requirements, stale/incomplete receipts, saved/legacy bundle preservation, ambiguous-device handling, bundle validation, full-install ordering, timeout/error outcomes, and the final LAN page check. The twelve existing browser tests remain unchanged. The Release binary still excludes all four Debug override strings and the test pairing-export path; bundled browser assets match their source.
+
+This physical installer run used a phone that was already trusted, in Developer Mode, and authorized for local networking, with a cached model on the Mac. First-time owner interactions on a fresh Apple account/device, other phone hardware, and a completely clean Mac remain unverified. Earlier checks cover real model downloads, including the Gemma 3 phone downloader. Apple signing and foreground-only serving limitations still apply.
+
 ## Reproduce
 
-Run `swift test`, `node --test Tests/WebClientTests.cjs`, `./start.sh build`, and `scripts/smoke-api.py` against the intended host. Models must be downloaded separately; test keys and build logs are excluded from Git. Debug-only startup overrides and a secret-free device receipt support physical testing, but the shipping Release app excludes those overrides.
+Run `swift test`, `node --test Tests/WebClientTests.cjs`, and `python3 -m unittest discover -s Tests -p 'SetupTests.py'`. Use `./start.sh build` for an unsigned compile check or `./start.sh` for full phone installation including the model. Run `scripts/smoke-api.py` against the intended host with its API key for additional API checks. Models, test keys, and build logs are excluded from Git. Debug-only startup overrides and a secret-free device receipt support physical testing, but the shipping Release app excludes those overrides.

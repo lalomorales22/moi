@@ -8,48 +8,82 @@ The dashboard shows app memory, available memory, battery, thermal pressure, con
 
 This is an early prototype. Qwen 3 0.6B and Gemma 3 270M run on a physical iPhone 11 and pass real Wi-Fi chat and streaming API checks. See [validation](docs/VALIDATION.md) for measurements and remaining limits.
 
-## Install from a Mac
+## One-command setup from a Mac
 
-You need Xcode with the iOS SDK, an Apple account added in Xcode → Settings → Accounts, and a connected iPhone running iOS 17 or newer. The script installs XcodeGen through Homebrew if needed. Models and build dependencies download separately and are not stored in Git.
-
-1. Unlock the phone, connect it by cable, and tap **Trust**.
-2. Enable **Settings → Privacy & Security → Developer Mode**, restart, and confirm after unlocking. If the setting is missing, open Xcode → Window → Devices and Simulators. If libimobiledevice is already installed, `idevicedevmodectl reveal` can reveal the menu; it does not enable the setting for you.
-3. Run from this repository:
+Connect the iPhone by USB, unlock it, and run this from the repository folder:
 
 ```sh
 ./start.sh
 ```
 
-The script detects a signing team from an existing Apple Development certificate, builds, signs, installs, and launches MOI. If automatic detection does not select your intended team:
+This is the complete setup, including the model. `./start.sh install` does the same thing. It:
+
+1. Checks full Xcode, the iOS SDK, connected iPhone, iOS version, Developer Mode, and signing identity. If multiple phones or signing teams are available, it asks which one to use.
+2. Uses XcodeGen if installed, or downloads the pinned, SHA-256-verified XcodeGen 2.46.0 into `.cache/tools`. Homebrew is not required, and it does not change global Xcode settings.
+3. Downloads Qwen 3 0.6B on the Mac and verifies its exact size and SHA-256. A valid cached download is reused. No Hugging Face account or token is needed.
+4. Builds a signed Release app using your Apple account and installs it on the selected iPhone.
+5. Copies the model into the app over USB and writes a one-time setup request. Other downloaded models and the phone's API key are preserved.
+6. Launches MOI. The phone verifies and loads the model, generates a short test reply, and starts serving automatically.
+7. Waits for a receipt matching this installation and checks that this Mac can reach the phone's chat page over Wi-Fi. Only then does it print **MOI is ready** and the website/API URLs.
+
+Open **Connect** on the iPhone and scan the QR from your other phone to chat. You can disconnect USB once setup succeeds; inference runs entirely on the iPhone. Keep MOI open, powered, and connected to Wi-Fi.
+
+### What you need first
+
+- A Mac with **full Xcode**, its iOS platform installed, and Python 3.9 or newer. Xcode 26.6 is the tested version. Command Line Tools alone cannot build/install this app; older Xcode versions may not support your phone or the pinned runtime. Open Xcode once to complete its first-launch setup and accept Apple's license. Download it from the [Mac App Store](https://apps.apple.com/app/xcode/id497799835) or [Apple Developer](https://developer.apple.com/xcode/).
+- Your Apple account added in **Xcode → Settings → Accounts**. A paid developer membership is not required for personal testing. If no signing identity exists, select your team → **Manage Certificates → + → Apple Development**, or supply `MOI_TEAM_ID` and let Xcode manage signing.
+- A physical iPhone on **iOS 17 or newer** with room for the app and model. The verified device is an iPhone 11 with 4 GB RAM; meeting the iOS requirement does not prove every older phone will run a model reliably.
+- Internet on the Mac for dependencies, model downloads, and Apple provisioning. The Mac and iPhone must be on the same trusted Wi-Fi for the final connection check. Allow several GB of free Mac storage for dependencies/builds, beyond the 345 MB Qwen model.
+
+### The few things Apple requires you to tap
+
+The script gives instructions and lets you retry in an interactive terminal. These steps cannot be silently completed by an installer:
+
+1. Unlock the iPhone and tap **Trust** when it asks to trust this computer.
+2. Enable **Settings → Privacy & Security → Developer Mode**, restart, then confirm **Turn On**. If the setting is missing, open **Xcode → Window → Devices and Simulators** with the unlocked phone connected. See [Apple's Developer Mode guide](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device).
+3. If opening MOI says **Untrusted Developer**, go to **Settings → General → VPN & Device Management → Developer App**, select your own developer profile, and trust it. Return to the terminal and continue, or rerun `./start.sh`.
+4. Allow **Local Network** access when MOI asks, and keep the app open during setup.
+
+MOI never asks for your Apple password. Signing is handled by Xcode. With a free Personal Team, Apple's provisioning profiles expire after seven days; rerun `./start.sh` to rebuild/reinstall. See [Apple's Personal Team limits](https://developer.apple.com/help/account/basics/about-your-developer-account).
+
+### Options and rerunning setup
 
 ```sh
-MOI_TEAM_ID=YOUR_TEAM_ID ./start.sh install
+./start.sh --model gemma-3-270m       # Full setup with the smaller CPU model
+./start.sh doctor                    # Xcode/signing/connected-device diagnostics
+./start.sh install --app-only        # Developer option: update only the app
+./start.sh build                     # Unsigned compile check; no phone needed
+./start.sh push-model gemma-3-270m    # Add a model to an already installed app
+./start.sh --help
 ```
 
-If the phone says **Untrusted Developer**, go to Settings → General → VPN & Device Management → Developer App, trust your own signing profile, and reopen MOI. If Xcode says its iOS platform is not installed, install that platform in Xcode Settings → Components before trying again.
+`MOI_DEVICE_ID`, `MOI_TEAM_ID`, `MOI_BUNDLE_ID`, and `MOI_MODEL` can select the phone, signing team, app identifier, and default setup model. For example:
 
-If more than one phone is connected, set `MOI_DEVICE_ID` to the device identifier printed by `./start.sh doctor`. If Apple says the bundle ID is unavailable, use `MOI_BUNDLE_ID=com.yourname.moi` for both install and push-model commands.
+```sh
+MOI_TEAM_ID=YOUR_TEAM_ID ./start.sh
+```
 
-Apple controls device trust, Developer Mode, signing, and provisioning. A free Personal Team typically requires reinstalling a development build after seven days. The script does not bypass those requirements or change your phone’s data.
+New installs use a team-specific bundle identifier to avoid everyone registering the same app ID. Existing `com.moi.phone` installations are detected and updated in place. The installer remembers the successful device/team/bundle mapping in ignored `.cache/install-settings.json`. A custom `MOI_BUNDLE_ID` is remembered for later setup and model transfers; changing it creates a separate app with separate data.
 
-## On the phone
+Setup is safe to rerun: verified Mac model downloads are reused, other phone models are retained, and the API key stays in the phone's Keychain. Installing/launching a new build interrupts active chats and invalidates old QR browser sessions; scan the fresh QR afterward. Gemma 4 is deliberately excluded from automatic setup because it failed on the iPhone 11. It remains a separate experimental model on suitable hardware.
 
-1. Open **Model**, choose **Qwen 3 · 0.6B**, and tap **Download model**.
-2. Tap **Load model**. Return to **Station** and tap **Start serving**.
-3. Allow **Local Network** access if iOS asks.
-4. Open **Connect**. From another phone on the same Wi-Fi, scan the QR and open its link. Pairing happens automatically; there is no API key to type.
-5. Chat back and forth. Your message moves into the conversation, the typing box clears, and MOI streams its reply. You can type your next message while it answers, or tap Stop. Tap **New chat** to start over. Refreshing clears the conversation but keeps that tab paired.
-6. For other API clients, use **Copy API base URL** under Client Settings and **Copy API key**. Manual browser connection remains available; **Reveal API key** shows the full key when needed.
+Build logs and non-secret setup receipts are stored in ignored `.cache/setup-*` directories. Setup waits up to 180 seconds after launch; use `--wait-seconds 300` if more time is needed for on-phone steps. A failed build, phone error, timeout, or unreachable LAN page exits with a nonzero status and instructions. In a noninteractive terminal, owner-action steps also exit instead of hanging for input. The script never reports a timed-out installation as ready. Fix the reported issue and rerun the same command.
 
-Each QR contains a random, single-use invitation that expires after two minutes. The phone refreshes it after use or expiry. The invitation lives in the URL fragment, which the browser removes before exchanging it for a separate browser credential. The main API key is never included in the QR or issued by pairing. Plain **Copy website link** and **Share website** links contain no invitation and require manual authentication.
+### After setup
+
+The automatic setup request is consumed once. After a later app restart, open **Model → Load model → Station → Start serving**. Locking the iPhone or leaving the app stops serving; return to MOI and tap **Start serving** again if the model is still loaded. Serving keeps the screen awake.
+
+If you used `--app-only`, select/download a model in **Model**, tap **Load model**, then **Start serving** in Station. You can also run the full `./start.sh` to prepare it automatically.
+
+Open **Connect** and scan the QR from another device on the same Wi-Fi. Pairing happens automatically; there is no API key to type. Chat back and forth: your message moves into the conversation, the typing box clears, and MOI streams its reply. Type your next message while it answers, tap Stop to interrupt, or tap New chat to start over. Refreshing clears the conversation but keeps that tab paired.
 
 The mobile browser keeps the composer at the bottom and scrolls the conversation above it. Tap the arrow to send; Return adds a line on touch devices. On desktop, Enter sends and Shift+Enter adds a line. Replies allow up to 256 output tokens. Follow-ups include up to six recent complete exchanges, trimmed to fit the phone's 2,048-byte input limit. Earlier messages remain visible, and a notice appears when older context is left out. Chat history lives only on the open page.
 
-Paired browsers retain their temporary credential in that tab’s session storage, including across page refreshes. Access lasts up to eight hours, or until MOI stops/restarts, the browser disconnects, or you tap **Disconnect paired browsers** on the phone. MOI accepts at most 16 paired sessions at a time. Invitations and credentials are kept only in the phone process’s memory. Pairing does not add transport encryption; use trusted home Wi-Fi.
+Each QR contains a random, single-use invitation that expires after two minutes. The phone refreshes it after use or expiry. The invitation lives in the URL fragment, which the browser removes before exchanging it for a separate browser credential. The main API key is never included in the QR or issued by pairing. Plain **Copy website link** and **Share website** links contain no invitation and require manual authentication.
 
-Manual API keys are held only in browser memory, never saved by MOI to browser storage. The iPhone hides its revealed key when you change tabs or leave the app. Manual browser entry ignores whitespace and normalizes capitalization for MOI’s hexadecimal keys; their full length is 68 characters including `moi_`. Previously shared `/v1` links still open the browser page.
+Paired browsers retain their temporary credential in that tab's session storage, including across page refreshes. Access lasts up to eight hours, or until MOI stops/restarts, the browser disconnects, or you tap **Disconnect paired browsers** on the phone. MOI accepts at most 16 paired sessions. Invitations and credentials stay only in the phone process's memory. Pairing does not add transport encryption; use trusted home Wi-Fi and do not expose MOI through router port forwarding.
 
-Keep MOI in the foreground. Serving keeps the screen awake. Locking the phone or leaving the app stops serving; reopen it and tap Start serving again. Use a trusted local network: this prototype serves plain HTTP, so it does not encrypt API traffic. Do not expose it through router port forwarding.
+For other API clients, use **Copy API base URL** under Client Settings and **Copy API key**. Manual browser connection remains available; **Reveal API key** shows the full key. Manual keys stay only in browser memory. Manual entry ignores whitespace and normalizes hexadecimal capitalization; the full native key is 68 characters including `moi_`. Previously shared `/v1` links still open the browser page.
 
 ### Models
 
@@ -116,6 +150,7 @@ Tools, images, audio, embeddings, JSON response schemas, third-party browser ori
 ./start.sh build
 swift test
 node --test Tests/WebClientTests.cjs
+python3 -m unittest discover -s Tests -p 'SetupTests.py'
 ```
 
 `project.yml` generates the Xcode project. The Swift package contains the shared parser, authentication, HTTP server, model catalog, and LiteRT-LM engine. `App/` contains the actual SwiftUI app.
