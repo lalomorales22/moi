@@ -38,10 +38,12 @@ Apple controls device trust, Developer Mode, signing, and provisioning. A free P
 2. Tap **Load model**. Return to **Station** and tap **Start serving**.
 3. Allow **Local Network** access if iOS asks.
 4. Open **Connect**. From another phone on the same Wi-Fi, scan the QR and open its link. Pairing happens automatically; there is no API key to type.
-5. Send a prompt. Each browser prompt starts a fresh conversation and allows up to 128 output tokens. Refreshing the page keeps that tab paired.
+5. Chat back and forth. Your message moves into the conversation, the typing box clears, and MOI streams its reply. You can type your next message while it answers, or tap Stop. Tap **New chat** to start over. Refreshing clears the conversation but keeps that tab paired.
 6. For other API clients, use **Copy API base URL** under Client Settings and **Copy API key**. Manual browser connection remains available; **Reveal API key** shows the full key when needed.
 
 Each QR contains a random, single-use invitation that expires after two minutes. The phone refreshes it after use or expiry. The invitation lives in the URL fragment, which the browser removes before exchanging it for a separate browser credential. The main API key is never included in the QR or issued by pairing. Plain **Copy website link** and **Share website** links contain no invitation and require manual authentication.
+
+The mobile browser keeps the composer at the bottom and scrolls the conversation above it. Tap the arrow to send; Return adds a line on touch devices. On desktop, Enter sends and Shift+Enter adds a line. Replies allow up to 256 output tokens. Follow-ups include up to six recent complete exchanges, trimmed to fit the phone's 2,048-byte input limit. Earlier messages remain visible, and a notice appears when older context is left out. Chat history lives only on the open page.
 
 Paired browsers retain their temporary credential in that tab’s session storage, including across page refreshes. Access lasts up to eight hours, or until MOI stops/restarts, the browser disconnects, or you tap **Disconnect paired browsers** on the phone. MOI accepts at most 16 paired sessions at a time. Invitations and credentials are kept only in the phone process’s memory. Pairing does not add transport encryption; use trusted home Wi-Fi.
 

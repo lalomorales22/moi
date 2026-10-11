@@ -2,40 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>MOI · mom’s old iPhone</title>
+  <meta name="theme-color" content="#101515">
+  <title>Chat with MOI</title>
   <link rel="icon" href="/moi-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/moi-web.css">
   <script src="/moi-web.js" defer></script>
 </head>
 <body>
-  <main>
-    <header><div><a class="wordmark" href="/">MOI</a><p>mom’s old iPhone</p></div><span id="badge" class="badge">PHONE REACHED</span></header>
-    <section class="intro"><p class="eyebrow">SMALL PHONE. REAL INFERENCE.</p><h1>Say hello to<br>an old friend.</h1><p>Scan the QR in MOI → Connect to pair automatically. Then try the model running on the phone.</p></section>
-    <section class="card" aria-labelledby="connect-title">
-      <div class="section-head"><h2 id="connect-title">Connect to MOI</h2><button id="disconnect" class="quiet" hidden>Disconnect</button></div>
-      <form id="connect-form" autocomplete="off">
-        <label for="api-key">API key</label>
-        <div class="key-row"><input id="api-key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Type or paste the key from MOI" required><button id="connect-button" type="submit">Connect <span aria-hidden="true">↗</span></button></div>
-        <button id="reveal-key" type="button" class="quiet reveal-key" aria-pressed="false">Show what I’m typing</button>
-        <p class="hint">Manual connection is optional. Scan the current QR on the iPhone to skip typing. If using an API key, open MOI → Connect → Reveal API key.</p>
+  <main class="chat-app">
+    <header class="chat-header">
+      <div class="brand"><img src="/moi-icon.svg" width="36" height="36" alt=""><div><h1>MOI</h1><p id="model-label">mom’s old iPhone</p></div></div>
+      <div class="header-actions">
+        <button id="new-chat" class="icon-button" aria-label="New chat" title="New chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 3l5 5M10 14l4-1L22 5l-5-5-8 8-1 5z" transform="translate(0 1) scale(.9)"/></svg><span class="desktop-label">New chat</span></button>
+        <button id="connection-open" class="connection-button" aria-label="Connection settings"><span id="status-dot" class="status-dot"></span><span id="badge">Connect</span></button>
+      </div>
+    </header>
+
+    <div id="chat-scroll" class="chat-scroll">
+      <section id="empty-state" class="empty-state">
+        <div class="hello-icon" aria-hidden="true">✳</div>
+        <p class="eyebrow">A LITTLE PHONE. A CONVERSATION.</p>
+        <h2>What’s on your mind?</h2>
+        <p>Ask a question. Follow a thought.<br>Your old iPhone does the thinking.</p>
+        <button id="empty-connect" class="primary">Connect to MOI</button>
+        <div id="suggestions" class="suggestions" hidden>
+          <button id="suggest-write">Help me write something <span aria-hidden="true">↗</span></button>
+          <button id="suggest-explain">Explain something simply <span aria-hidden="true">↗</span></button>
+        </div>
+      </section>
+      <div id="messages" class="messages" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions text"></div>
+    </div>
+
+    <footer class="composer-area">
+      <p id="context-note" class="context-note" hidden>Earlier messages stay here. MOI is using the most recent part of this chat.</p>
+      <p id="request-status" class="request-status" role="status" aria-live="polite">Scan the QR on the iPhone to get started.</p>
+      <form id="prompt-form" class="composer">
+        <label for="prompt" class="sr-only">Message MOI</label>
+        <textarea id="prompt" rows="1" maxlength="2048" placeholder="Message MOI…" enterkeyhint="enter" required disabled></textarea>
+        <button id="send" class="send-button" type="submit" aria-label="Send message" title="Send message" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+        <button id="cancel" class="send-button stop-button" type="button" aria-label="Stop response" title="Stop response" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1"/></svg></button>
       </form>
-      <p id="connection-status" role="status" aria-live="polite">Scan the current QR on the iPhone to connect automatically.</p>
-    <p class="hint">QR pairing stays in this browser tab for up to 8 hours, including refreshes. Stopping MOI or tapping Disconnect ends access.</p>
-    </section>
-    <section class="card" aria-labelledby="prompt-title">
-      <h2 id="prompt-title">Try a prompt</h2>
-      <form id="prompt-form">
-        <label for="prompt">What should this little phone do?</label>
-        <textarea id="prompt" rows="3" maxlength="2048" placeholder="Give me three names for a tiny robot." required disabled></textarea>
-        <div class="send-row"><span class="hint">Quick test · each prompt starts fresh</span><button id="send" type="submit" disabled>Send <span aria-hidden="true">→</span></button><button id="cancel" type="button" class="quiet" hidden>Cancel</button></div>
-      </form>
-      <p id="request-status" role="status" aria-live="polite">Connect above to get started.</p>
-      <div id="answer" class="answer" hidden><p class="eyebrow">MOI SAYS</p><div id="answer-text"></div><p id="answer-meta" class="hint"></p></div>
-    </section>
-    <details class="card"><summary>Use MOI in another app</summary><label for="api-url">OpenAI-compatible API base URL</label><div class="key-row"><input id="api-url" readonly aria-label="API base URL"><button id="copy-url" class="quiet">Copy</button></div><p class="hint">Use the phone’s API key and model name <code>moi</code>. Text chat and streaming are supported.</p></details>
-    <footer>Stay on the same Wi-Fi and keep MOI open on the iPhone.<br>Local HTTP connection · prompts are not saved by MOI.</footer>
+      <p class="composer-note">On your iPhone. In this moment. <span>MOI can make mistakes.</span></p>
+    </footer>
   </main>
+
+  <dialog id="connection-panel" aria-labelledby="connect-title">
+    <div class="dialog-heading"><h2 id="connect-title">Connect to MOI</h2><button id="connection-close" class="icon-button" aria-label="Close connection settings">✕</button></div>
+    <p id="connection-status" role="status" aria-live="polite">Scan the current QR in MOI → Connect to pair automatically. No key to type.</p>
+    <form id="connect-form" autocomplete="off">
+      <details id="manual-connection"><summary>Connect with an API key instead</summary>
+        <label for="api-key">API key</label>
+        <input id="api-key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Type or paste the key from MOI" required>
+        <div class="key-actions"><button id="reveal-key" type="button" class="quiet" aria-pressed="false">Show key</button><button id="connect-button" class="primary" type="submit">Connect</button></div>
+      </details>
+    </form>
+    <button id="disconnect" class="quiet" hidden>Disconnect this browser</button>
+    <details class="api-settings"><summary>Use MOI in another app</summary><label for="api-url">API base URL</label><div class="key-row"><input id="api-url" readonly aria-label="API base URL"><button id="copy-url" class="quiet">Copy</button></div><p class="hint">Use the phone’s API key and model name <code>moi</code>.</p></details>
+    <p class="hint">Pairing lasts up to 8 hours in this tab. Stopping MOI ends access. Keep the iPhone open on the same Wi-Fi.</p>
+    <p class="hint">This chat lives on this page. New chat or refreshing clears it. Local HTTP connection.</p>
+  </dialog>
 </body>
 </html>
