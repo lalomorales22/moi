@@ -3,7 +3,7 @@
 ## Completed locally
 
 - Shared Swift package builds with Xcode 26.6 / Swift 6.3 in Swift 5 language mode.
-- Eight Swift tests pass: fragmented UTF-8 requests, ambiguous HTTP framing, oversized requests, bearer authentication, chat validation, corrupt/truncated model rejection, and a real TCP listener's authentication, thermal gate, error recovery, privacy-safe activity log, and shutdown.
+- Eight Swift tests pass: fragmented UTF-8 requests, ambiguous HTTP framing, oversized requests, bearer authentication, chat validation, corrupt/truncated model rejection, and a real TCP listener's authentication, public browser resources and CSP, own-origin access, foreign-origin rejection, thermal gate, error recovery, privacy-safe activity log, and shutdown.
 - Unsigned iOS arm64 Release app compiles and links against the actual LiteRT-LM iOS framework.
 - Real Qwen 3 0.6B INT4 inference on the Mac passes authenticated API checks, invalid-request rejection, non-streamed chat, streamed chat with `[DONE]`, token accounting, and metrics.
 - Real Gemma 4 E2B inference on the Mac passes the same API checks.
@@ -49,7 +49,13 @@ Foreground/background transitions, thermal behavior over longer runs, Wi-Fi chan
 
 ## QR link sharing
 
-Connect now renders a local QR code for the current API base URL and offers the system Share link action. Apple's Vision barcode decoder recovered the exact original URL from two rendered codes, including a different host and port. The updated Release app built, installed, and launched successfully; the user confirmed the QR is visible on the phone. A camera scan from a second physical device and sending through the share sheet have not been tested. API keys are excluded from the QR and shared URL.
+Connect renders a local QR code and offers the system Share link action. Apple's Vision barcode decoder recovered the exact original URL from two rendered codes, including a different host and port. The user confirmed visibility and scanning from a separate phone. That scan exposed a usability issue: the original `/v1` link returned an authentication error in a browser.
+
+The QR now opens a browser page at `/`; old `/v1` links also serve that page. Static resources are public with proper MIME types, no-store, and a restrictive content security policy. API routes still require a bearer key. Unit checks cover missing credentials, the permitted local origin, mismatched Host, foreign origin, and wrong port.
+
+Desktop Safari reached the actual iPhone over Wi-Fi with the updated Debug build. Manual browser checks passed: dummy key reveal/hide, friendly wrong-key error, successful authentication, a real Gemma 3 prompt, and disconnect clearing the key and disabling submission. The 24-token robot-name response appeared in 0.9 seconds measured by the browser. Desktop Chrome also verified authentication on the initial browser implementation. These are desktop browser checks against a physical iPhone server, not a mobile Safari interaction test.
+
+The native Connect tab now includes Reveal API key and hides it on tab changes, key changes, and leaving the app. The browser includes Show what I’m typing for manual entry from another phone. API keys remain excluded from the QR and shared URL. Native reveal interaction, mobile layout, and the system share sheet still need hands-on verification. The signed Release build with these changes was installed and launched successfully. All four bundled web assets match the tested source, and all three Debug startup override strings are absent from the Release binary. All eight Swift tests and JavaScript syntax checks pass.
 
 ## Reproduce
 

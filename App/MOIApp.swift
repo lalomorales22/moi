@@ -20,7 +20,9 @@ private let panel = Color(red: 0.10, green: 0.12, blue: 0.125)
 
 struct ContentView: View {
     @ObservedObject var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var tab = 0
+    @State private var keyIsVisible = false
     var body: some View {
         TabView(selection: $tab) {
             dashboard.tabItem { Label("Station", systemImage: "waveform.path") }.tag(0)
@@ -28,6 +30,9 @@ struct ContentView: View {
             connection.tabItem { Label("Connect", systemImage: "network") }.tag(2)
             activity.tabItem { Label("Activity", systemImage: "list.bullet.rectangle") }.tag(3)
         }.tint(mint)
+            .onChange(of: tab) { _, _ in keyIsVisible = false }
+            .onChange(of: scenePhase) { _, phase in if phase != .active { keyIsVisible = false } }
+            .onChange(of: model.key) { _, _ in keyIsVisible = false }
             .alert("MOI needs attention", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
                 Button("Got it", role: .cancel) { model.error = nil }
             } message: { Text(model.error ?? "") }
@@ -141,15 +146,15 @@ struct ContentView: View {
         page {
             title("Meet your server.", subtitle: "Same Wi-Fi. A URL. Your private key.")
             card {
-                eyebrow("API BASE URL")
-                Text(model.endpoint + "/v1").font(.system(.body, design: .monospaced)).textSelection(.enabled)
+                eyebrow("OPEN MOI IN A BROWSER")
+                Text(model.endpoint).font(.system(.body, design: .monospaced)).textSelection(.enabled)
                 if model.stats.addresses.isEmpty { Text("Join Wi-Fi to get a LAN address.").font(.caption).foregroundStyle(.orange) }
-                if let url = model.apiBaseURL {
+                if let url = model.browserURL {
                     LinkQRCode(value: url.absoluteString)
-                    Text("Scan to copy this address into your API client. Same Wi-Fi; API key required.")
+                    Text("Scan from another device to open MOI’s chat page. Enter the API key there to connect.")
                         .font(.caption).foregroundStyle(.secondary)
                     HStack {
-                        Button("Copy URL") { UIPasteboard.general.string = url.absoluteString }
+                        Button("Copy link") { UIPasteboard.general.string = url.absoluteString }
                         ShareLink(item: url) { Label("Share link", systemImage: "square.and.arrow.up") }
                     }.buttonStyle(.bordered)
                     Text("The QR code contains only the URL, never your API key.")
@@ -160,13 +165,25 @@ struct ContentView: View {
             }
             card {
                 eyebrow("API KEY")
-                Text("moi_••••••••••••••••").font(.body.monospaced())
+                if keyIsVisible {
+                    Text(model.key).font(.body.monospaced()).textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true).privacySensitive()
+                    Text("Type the full key on your other device, including moi_. Line breaks aren’t part of the key.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("moi_••••••••••••••••").font(.body.monospaced())
+                }
+                Button { keyIsVisible.toggle() } label: {
+                    Label(keyIsVisible ? "Hide API key" : "Reveal API key", systemImage: keyIsVisible ? "eye.slash" : "eye")
+                }.buttonStyle(.bordered)
                 Button("Copy API key") { model.copyKey() }.buttonStyle(.borderedProminent).tint(mint).foregroundStyle(ink)
                 Button("Create a new key") { model.rotateKey() }.disabled(model.serving || model.server.busy)
-                Text("Stored in this phone’s Keychain. Clipboard copy expires in two minutes. Stop serving before rotating the key.").font(.caption).foregroundStyle(.secondary)
+                Text("Stored in this phone’s Keychain. The key hides when you leave this tab or app. Clipboard copy expires in two minutes. Stop serving before rotating the key.").font(.caption).foregroundStyle(.secondary)
             }
             card {
                 eyebrow("CLIENT SETTINGS")
+                Text(model.endpoint + "/v1").font(.body.monospaced()).textSelection(.enabled)
+                Button("Copy API base URL") { UIPasteboard.general.string = model.endpoint + "/v1" }.buttonStyle(.bordered)
                 LabeledContent("Model", value: model.loadedID ?? model.selectedID)
                 LabeledContent("Authentication", value: "Bearer key")
                 LabeledContent("Endpoint", value: "/chat/completions")
@@ -238,7 +255,7 @@ private struct LinkQRCode: View {
                     .resizable().interpolation(.none).scaledToFit()
                     .frame(maxWidth: 240)
                     .padding(12).background(.white, in: RoundedRectangle(cornerRadius: 16))
-                    .accessibilityLabel("QR code for the MOI API URL")
+                    .accessibilityLabel("QR code for the MOI browser page")
             } else {
                 Text("QR code unavailable. Copy or share the URL below.")
                     .font(.caption).foregroundStyle(.secondary)

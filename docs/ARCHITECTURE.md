@@ -10,6 +10,7 @@ Turn a spare iPhone into a small, local inference appliance. The phone downloads
 - Network.framework HTTP/1.1 listener with a bearer key, bounded requests and connections, one generation at a time, Bonjour discovery, and cancellation.
 - `/health`, `/v1/models`, `/v1/chat/completions`, `/moi/stats`. OpenAI-compatible text chat subset, including SSE streaming. Unsupported features return explicit errors.
 - Shared core also runs on macOS for real engine/API testing. A Mac result is not an iPhone performance result.
+- Public browser page at `/` (also `/v1` for older QR links), with authenticated single-prompt inference. No remote assets. Keys stay in page memory; model output renders as text. API requests with an Origin header must match both an explicit local-origin allowlist and the Host header. No cross-origin API access.
 - Keychain for the API key; model files live in app Documents/Models. Prompts and completions are not persisted by MOI.
 
 ## Operating limits
@@ -30,4 +31,4 @@ Official [Swift integration](https://developers.google.com/edge/litert-lm/swift)
 
 ## Later
 
-TLS or a separately configured private tunnel; QR client pairing; additional proven model choices; sustained thermal benchmarks; fleet view. Public GitHub publication follows user review.
+TLS or a separately configured private tunnel; short-lived QR client pairing without manual key entry; additional proven model choices; sustained thermal benchmarks; fleet view. Public GitHub publication follows user review.

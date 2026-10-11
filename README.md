@@ -37,9 +37,11 @@ Apple controls device trust, Developer Mode, signing, and provisioning. A free P
 1. Open **Model**, choose **Qwen 3 · 0.6B**, and tap **Download model**.
 2. Tap **Load model**. Return to **Station** and tap **Start serving**.
 3. Allow **Local Network** access if iOS asks.
-4. Under **Connect**, scan the QR code, tap **Share link**, or copy the base URL into your client. Copy the API key separately.
+4. Under **Connect**, scan the QR code from another device on the same Wi-Fi, or use **Share link**. It opens MOI’s browser page.
+5. On the iPhone running MOI, tap **Reveal API key**. Type the full key into the browser page on your other device, including `moi_`, then tap **Connect**. **Show what I’m typing** lets you check the characters. Use **Copy API key** if you can paste between devices.
+6. Send a prompt. Each browser prompt starts a fresh conversation and allows up to 128 output tokens. For other clients, use **Copy API base URL** under Client Settings and supply the same key.
 
-The QR code is generated on the phone and contains only its current API base URL. It updates when the Wi-Fi address or port changes. Other devices need the same local network and an API client configured with MOI's key; the link is an API endpoint, not a browser chat page.
+The QR code contains only the browser URL and updates when the Wi-Fi address or port changes. The key stays separate. The iPhone hides the revealed key when you change tabs or leave the app. Line wrapping does not add characters to the key. The browser keeps its key only in page memory and clears it when you disconnect or leave; MOI does not save it in cookies or browser storage. Previously shared `/v1` links also open the browser page.
 
 Keep MOI in the foreground. Serving keeps the screen awake. Locking the phone or leaving the app stops serving; reopen it and tap Start serving again. Use a trusted local network: this prototype serves plain HTTP, so it does not encrypt API traffic. Do not expose it through router port forwarding.
 
@@ -72,7 +74,7 @@ The files go into the app’s `Documents/Models` folder. They can also be transf
 
 ## API
 
-Every route requires `Authorization: Bearer YOUR_MOI_KEY`.
+Every API route below requires `Authorization: Bearer YOUR_MOI_KEY`. The browser page and its static assets are public; they contain no key or private device data. Browser API requests are accepted from MOI’s own origin with a valid key. Foreign browser origins are rejected.
 
 | Method | Route | Result |
 |---|---|---|
@@ -99,7 +101,7 @@ Supported chat fields: `model`, `messages`, `stream`, `max_tokens`, `temperature
 
 Limits: 1,024-token context, 2,048 UTF-8 bytes of message text, 1–256 output tokens (128 default), 32 messages, 16 KB request body, 8 simultaneous sockets, one active generation, and a 180-second request deadline. The runtime can reject a prompt whose actual tokenization exceeds its context. Overlapping inference requests receive `429` with `Retry-After: 5`. Serious/critical thermal pressure returns `503` for new inference. Backgrounding, memory warnings, and server shutdown cancel work.
 
-Tools, images, audio, embeddings, JSON response schemas, browser-origin requests, and other OpenAI fields are not supported in v0.1. Unsupported fields receive an explicit `400`. Streaming failures after headers are sent appear as an SSE error object and a closed connection. Token usage is included only when the runtime provides it; throughput is not estimated from word counts.
+Tools, images, audio, embeddings, JSON response schemas, third-party browser origins, and other OpenAI fields are not supported in v0.1. Unsupported fields receive an explicit `400`. Streaming failures after headers are sent appear as an SSE error object and a closed connection. Token usage is included only when the runtime provides it; throughput is not estimated from word counts.
 
 ## Development
 

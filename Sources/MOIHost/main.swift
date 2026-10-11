@@ -14,6 +14,7 @@ import MOICore
         try await engine.load(spec: spec, file: URL(fileURLWithPath: args[2]))
         let server = HTTPServer(engine: engine)
         let port = args.count > 3 ? UInt16(args[3]) ?? 8081 : 8081
+        server.browserOrigins = { ["http://127.0.0.1:\(port)", "http://localhost:\(port)"] }
         try server.start(port: port, key: key, modelID: spec.id, name: "MOI development Mac")
         print("MOI development host listening on port \(port). This is not an iPhone benchmark.")
         while !Task.isCancelled { try await Task.sleep(nanoseconds: 1_000_000_000) }

@@ -8,7 +8,7 @@ let package = Package(
                .executable(name: "moi-host", targets: ["MOIHost"])],
     dependencies: [.package(url: "https://github.com/google-ai-edge/LiteRT-LM.git", exact: "0.18.0")],
     targets: [
-        .target(name: "MOICore", dependencies: [.product(name: "LiteRTLM", package: "LiteRT-LM")]),
+        .target(name: "MOICore", dependencies: [.product(name: "LiteRTLM", package: "LiteRT-LM")], resources: [.process("Web")]),
         .executableTarget(name: "MOIHost", dependencies: ["MOICore"]),
         .testTarget(name: "MOICoreTests", dependencies: ["MOICore"])
     ]

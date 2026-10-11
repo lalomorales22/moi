@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>MOI · mom’s old iPhone</title>
+  <link rel="icon" href="/moi-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/moi-web.css">
+  <script src="/moi-web.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div><a class="wordmark" href="/">MOI</a><p>mom’s old iPhone</p></div><span id="badge" class="badge">PHONE REACHED</span></header>
+    <section class="intro"><p class="eyebrow">SMALL PHONE. REAL INFERENCE.</p><h1>Say hello to<br>an old friend.</h1><p>You reached the phone. Enter its API key to try the model running on it.</p></section>
+    <section class="card" aria-labelledby="connect-title">
+      <div class="section-head"><h2 id="connect-title">Connect to MOI</h2><button id="disconnect" class="quiet" hidden>Disconnect</button></div>
+      <form id="connect-form" autocomplete="off">
+        <label for="api-key">API key</label>
+        <div class="key-row"><input id="api-key" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Type or paste the key from MOI" required><button id="connect-button" type="submit">Connect <span aria-hidden="true">↗</span></button></div>
+        <button id="reveal-key" type="button" class="quiet reveal-key" aria-pressed="false">Show what I’m typing</button>
+        <p class="hint">On the iPhone running MOI: Connect → Reveal API key. Type the full key here, including moi_, or use Copy API key if you can paste between devices. The key clears when you disconnect or leave this page.</p>
+      </form>
+      <p id="connection-status" role="status" aria-live="polite">Your API key is separate from the QR link.</p>
+    </section>
+    <section class="card" aria-labelledby="prompt-title">
+      <h2 id="prompt-title">Try a prompt</h2>
+      <form id="prompt-form">
+        <label for="prompt">What should this little phone do?</label>
+        <textarea id="prompt" rows="3" maxlength="2048" placeholder="Give me three names for a tiny robot." required disabled></textarea>
+        <div class="send-row"><span class="hint">Quick test · each prompt starts fresh</span><button id="send" type="submit" disabled>Send <span aria-hidden="true">→</span></button><button id="cancel" type="button" class="quiet" hidden>Cancel</button></div>
+      </form>
+      <p id="request-status" role="status" aria-live="polite">Connect above to get started.</p>
+      <div id="answer" class="answer" hidden><p class="eyebrow">MOI SAYS</p><div id="answer-text"></div><p id="answer-meta" class="hint"></p></div>
+    </section>
+    <details class="card"><summary>Use MOI in another app</summary><label for="api-url">OpenAI-compatible API base URL</label><div class="key-row"><input id="api-url" readonly aria-label="API base URL"><button id="copy-url" class="quiet">Copy</button></div><p class="hint">Use the phone’s API key and model name <code>moi</code>. Text chat and streaming are supported.</p></details>
+    <footer>Stay on the same Wi-Fi and keep MOI open on the iPhone.<br>Local HTTP connection · prompts are not saved by MOI.</footer>
+  </main>
+</body>
+</html>

@@ -12,6 +12,7 @@ public struct RequestEvent: Identifiable, Sendable {
 @MainActor public final class HTTPServer {
     public var onChange: (() -> Void)?
     public var canGenerate: () -> Bool = { true }
+    public var browserOrigins: () -> Set<String> = { [] }
     public private(set) var running = false
     public private(set) var busy = false
     public private(set) var completed = 0
@@ -96,7 +97,7 @@ public struct RequestEvent: Identifiable, Sendable {
 
     private func record(_ request: HTTPRequest, client: HTTPClient, status: Int) {
         // Never retain Authorization, prompts, or responses in the activity feed.
-        let knownPaths = ["/health", "/moi/stats", "/v1/models", "/v1/chat/completions"]
+        let knownPaths = ["/", "/v1", "/v1/", "/index.html", "/moi-web.js", "/moi-web.css", "/moi-icon.svg", "/health", "/moi/stats", "/v1/models", "/v1/chat/completions"]
         let route = knownPaths.contains(request.path) ? request.path : "[unknown route]"
         events.insert(RequestEvent(peer: client.peer, route: request.method.prefix(8) + " " + route, status: status), at: 0)
         events = Array(events.prefix(30)); onChange?()
@@ -106,8 +107,16 @@ public struct RequestEvent: Identifiable, Sendable {
         var responseStatus = 200
         defer { record(request, client: client, status: responseStatus) }
         do {
+            if request.method == "GET", let asset = BrowserPage.asset(for: request.path) {
+                try await client.respond(200, body: asset.body, contentType: asset.contentType)
+                return
+            }
             guard APIJSON.authorized(request.headers["authorization"], key: key) else { throw MOIError(401, "A valid bearer key is required.") }
-            guard request.headers["origin"] == nil else { throw MOIError(403, "Browser-origin requests are disabled. Use a server-side API client.") }
+            if let origin = request.headers["origin"] {
+                guard browserOrigins().contains(origin), origin == "http://\(request.headers["host"] ?? "")" else {
+                    throw MOIError(403, "Use MOI's own browser page or a server-side API client.")
+                }
+            }
             switch (request.method, request.path) {
             case ("GET", "/health"):
                 try await client.respond(200, body: APIJSON.encode(["status": "ok", "model": modelID, "busy": busy]))
@@ -238,9 +247,12 @@ public struct RequestEvent: Identifiable, Sendable {
             })
         }
     }
-    func respond(_ code: Int, body: Data) async throws {
+    func respond(_ code: Int, body: Data, contentType: String = "application/json") async throws {
         let reasons = [200: "OK", 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 409: "Conflict", 413: "Content Too Large", 415: "Unsupported Media Type", 417: "Expectation Failed", 429: "Too Many Requests", 431: "Request Header Fields Too Large", 500: "Internal Server Error", 503: "Service Unavailable"]
-        var header = "HTTP/1.1 \(code) \(reasons[code] ?? "Error")\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nConnection: close\r\nCache-Control: no-store\r\n"
+        var header = "HTTP/1.1 \(code) \(reasons[code] ?? "Error")\r\nContent-Type: \(contentType)\r\nContent-Length: \(body.count)\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\n"
+        if contentType.hasPrefix("text/html") {
+            header += "Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'\r\n"
+        }
         if code == 429 || code == 503 { header += "Retry-After: 5\r\n" }
         if code == 401 { header += "WWW-Authenticate: Bearer\r\n" }
         try await send(Data((header + "\r\n").utf8) + body); close()

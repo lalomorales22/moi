@@ -26,6 +26,7 @@ import MOICore
         guard let address = stats.addresses.first, let number = UInt16(port), number >= 1024 else { return nil }
         return URL(string: "http://\(address):\(number)/v1")
     }
+    var browserURL: URL? { apiBaseURL?.deletingLastPathComponent() }
     var isWorking: Bool { !operation.isEmpty }
     var installed: Bool { FileManager.default.fileExists(atPath: file(for: selected).path) }
     func compatibilityIssue(for model: ModelSpec) -> String? {
@@ -44,6 +45,10 @@ import MOICore
             self.revision += 1
         }
         server.canGenerate = { ProcessInfo.processInfo.thermalState == .nominal || ProcessInfo.processInfo.thermalState == .fair }
+        server.browserOrigins = { [weak self] in
+            guard let self, let number = UInt16(self.port) else { return [] }
+            return Set(self.stats.addresses.map { "http://\($0):\(number)" })
+        }
         sample()
         if !availableModels.contains(where: { $0.id == selectedID }) { selectedID = availableModels.first?.id ?? "qwen3-0.6b" }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in Task { @MainActor in self?.sample() } }
