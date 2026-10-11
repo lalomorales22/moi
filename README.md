@@ -1,3 +1,5 @@
+![MOI — mom’s old iPhone, now a little inference server. An iPhone running MOI connects to nearby devices over Wi-Fi.](docs/assets/moi-banner.png)
+
 # MOI
 
 **mom’s old iPhone. now a little inference server.**
