@@ -1,0 +1,12 @@
+// Signing identity for the MOI app target.
+//
+// ./start.sh passes DEVELOPMENT_TEAM and PRODUCT_BUNDLE_IDENTIFIER to xcodebuild directly
+// (team-specific ID, remembered per phone in .cache/install-settings.json), so these
+// defaults only apply to builds and archives started from Xcode itself.
+//
+// For an App Store / TestFlight archive, copy Signing.local.xcconfig.example to
+// Signing.local.xcconfig (git-ignored) and set your own team and registered bundle ID.
+PRODUCT_BUNDLE_IDENTIFIER = com.moi.phone
+DEVELOPMENT_TEAM =
+
+#include? "Signing.local.xcconfig"

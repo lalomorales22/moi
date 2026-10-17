@@ -159,7 +159,7 @@ node --test Tests/WebClientTests.cjs
 python3 -m unittest discover -s Tests -p 'SetupTests.py'
 ```
 
-`project.yml` generates the Xcode project. The Swift package contains the shared parser, authentication, HTTP server, model catalog, and LiteRT-LM engine. `App/` contains the actual SwiftUI app.
+`project.yml` generates the Xcode project. To ship to TestFlight or the App Store, follow [docs/APP_STORE.md](docs/APP_STORE.md). The Swift package contains the shared parser, authentication, HTTP server, model catalog, and LiteRT-LM engine. `App/` contains the actual SwiftUI app.
 
 You can run the same core on a Mac for API development:
 

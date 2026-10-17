@@ -250,7 +250,11 @@ class Installer:
                     process.wait()
                     raise
         if code:
-            say('\n'.join(log.read_text(errors='replace').splitlines()[-35:]))
+            text = log.read_text(errors='replace')
+            say('\n'.join(text.splitlines()[-35:]))
+            if 'simulator runtime' in text.lower():
+                raise SetupError('Compiling the app icon asset catalog needs an iOS Simulator runtime, even for phone builds. '
+                                 'Open Xcode → Settings → Components, install the iOS platform/simulator, then rerun ./start.sh.')
             raise SetupError('Build failed. See the log above. For signing errors, check Xcode Accounts and your team; '
                              'for SDK/device errors, install the matching iOS platform in Xcode. Rerun after fixing the reported error.')
 

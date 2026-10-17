@@ -2,12 +2,12 @@ import AppKit
 import ImageIO
 import UniformTypeIdentifiers
 
-// Use an RGBA Core Graphics context so headless rendering has a valid backing bitmap.
+// Render into an opaque RGB context: App Store Connect rejects icons with an alpha channel.
 func makeIcon(pixels: Int, path: String) throws {
     let context = CGContext(data: nil, width: pixels, height: pixels,
                             bitsPerComponent: 8, bytesPerRow: pixels * 4,
                             space: CGColorSpaceCreateDeviceRGB(),
-                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
     context.scaleBy(x: CGFloat(pixels) / 1024, y: CGFloat(pixels) / 1024)
     let mint = CGColor(red: 0.63, green: 0.97, blue: 0.65, alpha: 1)
     let ink = CGColor(red: 0.055, green: 0.07, blue: 0.075, alpha: 1)
@@ -39,8 +39,5 @@ func makeIcon(pixels: Int, path: String) throws {
     guard CGImageDestinationFinalize(output) else { throw CocoaError(.fileWriteUnknown) }
 }
 
+// Xcode 14+ single-size icon: actool derives every device size from this 1024×1024 image.
 try makeIcon(pixels: 1024, path: "App/Assets.xcassets/AppIcon.appiconset/AppIcon.png")
-// Legacy resources allow building without asset-catalog simulator dependencies.
-for (filename, pixels) in [("AppIcon60x60@2x.png", 120), ("AppIcon60x60@3x.png", 180), ("AppIcon76x76.png", 76), ("AppIcon76x76@2x.png", 152), ("AppIcon83.5x83.5@2x.png", 167)] {
-    try makeIcon(pixels: pixels, path: "App/" + filename)
-}

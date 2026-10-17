@@ -1,0 +1,7 @@
+// Copy to Config/Signing.local.xcconfig (git-ignored), fill in, then rerun xcodegen.
+// Must match the explicit App ID registered in your paid team and the App Store Connect app record.
+DEVELOPMENT_TEAM = ABCDE12345
+PRODUCT_BUNDLE_IDENTIFIER = com.yourname.moi
+
+// Optional: bump the build number for each upload without editing project.yml.
+// CURRENT_PROJECT_VERSION = 2

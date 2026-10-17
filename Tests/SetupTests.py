@@ -3,7 +3,9 @@ import contextlib
 import importlib.util
 import io
 import json
+import plistlib
 from pathlib import Path
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -123,6 +125,39 @@ class SetupTests(unittest.TestCase):
             with patch.object(installer, 'device_json', side_effect=copy_receipt), patch.object(setup.urllib.request, 'build_opener', side_effect=OSError('No route')):
                 with self.assertRaisesRegex(setup.SetupError, 'cannot reach'):
                     installer.wait_ready('phone', 'com.example.moi', 'request', 1)
+
+
+class AppStorePackagingTests(unittest.TestCase):
+    """Static checks for App Store Connect upload requirements; Xcode still has the final say."""
+    root = Path(__file__).resolve().parents[1]
+
+    def test_info_plist_is_upload_ready(self):
+        info = plistlib.loads((self.root / 'App/Info.plist').read_bytes())
+        self.assertEqual(info['CFBundleIconName'], 'AppIcon')
+        self.assertIs(info['ITSAppUsesNonExemptEncryption'], False)
+        self.assertNotIn('CFBundleIcons', info)
+        self.assertNotIn('CFBundleIcons~ipad', info)
+        self.assertEqual(info['CFBundleIdentifier'], '$(PRODUCT_BUNDLE_IDENTIFIER)')
+
+    def test_privacy_manifest_declares_used_reasons_only(self):
+        manifest = plistlib.loads((self.root / 'App/PrivacyInfo.xcprivacy').read_bytes())
+        self.assertIs(manifest['NSPrivacyTracking'], False)
+        self.assertEqual(manifest['NSPrivacyTrackingDomains'], [])
+        self.assertEqual(manifest['NSPrivacyCollectedDataTypes'], [])
+        reasons = {entry['NSPrivacyAccessedAPIType']: entry['NSPrivacyAccessedAPITypeReasons'] for entry in manifest['NSPrivacyAccessedAPITypes']}
+        self.assertEqual(reasons, {'NSPrivacyAccessedAPICategoryUserDefaults': ['CA92.1'],
+                                   'NSPrivacyAccessedAPICategoryDiskSpace': ['85F4.1', 'E174.1']})
+
+    def test_app_icon_is_opaque_1024(self):
+        folder = self.root / 'App/Assets.xcassets/AppIcon.appiconset'
+        images = json.loads((folder / 'Contents.json').read_text())['images']
+        self.assertEqual([(i['idiom'], i['size']) for i in images], [('universal', '1024x1024')])
+        png = (folder / images[0]['filename']).read_bytes()
+        self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
+        width, height, color_type = struct.unpack('>II', png[16:24]) + (png[25],)
+        self.assertEqual((width, height), (1024, 1024))
+        self.assertIn(color_type, (0, 2), 'App Store icons must not have an alpha channel')
+        self.assertNotIn(b'tRNS', png, 'App Store icons must not be transparent')
 
 
 if __name__ == '__main__':
