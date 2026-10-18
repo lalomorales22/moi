@@ -24,6 +24,7 @@ public struct RequestEvent: Identifiable, Sendable {
     public private(set) var modelID = ""
     public var peers: [String] { clients.values.map(\.peer).sorted() }
     public var connectionCount: Int { clients.count }
+    nonisolated public static let maxConnections = 8
     private var listener: NWListener?
     private var clients: [UUID: HTTPClient] = [:]
     private var startedAt: Date?
@@ -110,6 +111,10 @@ public struct RequestEvent: Identifiable, Sendable {
                     self.running = true; self.restartAttempts = 0; self.startedAt = Date(); self.status = "Serving"
                 case .failed(let error): self.listenerError(error, listener: listener, failed: true)
                 case .waiting(let error): self.listenerError(error, listener: listener, failed: false)
+                case .cancelled:
+                    // Cancelled underneath us (not via stop()/retire): don't keep showing LIVE.
+                    self.listener = nil; self.running = false
+                    self.status = "Offline"; self.lastError = "The listener was closed by the system. Press Start serving."
                 default: break
                 }
                 self.onChange?()
@@ -117,7 +122,7 @@ public struct RequestEvent: Identifiable, Sendable {
         }
         listener.newConnectionHandler = { [weak self] connection in
             Task { @MainActor in
-                guard let self, self.listener != nil, self.clients.count < 8 else { connection.cancel(); return }
+                guard let self, self.listener != nil, self.clients.count < Self.maxConnections else { connection.cancel(); return }
                 let client = HTTPClient(connection: connection)
                 self.clients[client.id] = client
                 client.onClose = { [weak self, weak client] in
@@ -210,7 +215,7 @@ public struct RequestEvent: Identifiable, Sendable {
     }
 
     public var stats: [String: Any] {
-        var values: [String: Any] = ["serving": running, "busy": busy, "model": modelID, "active_connections": connectionCount,
+        var values: [String: Any] = ["serving": running, "busy": busy, "model": modelID, "active_connections": connectionCount, "max_connections": Self.maxConnections,
                                   "completed_requests": completed, "failed_requests": failed, "paired_browsers": pairedBrowserCount,
                                   "uptime_seconds": running ? Int(Date().timeIntervalSince(startedAt ?? Date())) : 0]
         if let lastGeneration {
@@ -391,7 +396,10 @@ public struct RequestEvent: Identifiable, Sendable {
         }
         if code == 429 || code == 503 { header += "Retry-After: 5\r\n" }
         if code == 401 { header += "WWW-Authenticate: Bearer\r\n" }
-        try await send(Data((header + "\r\n").utf8) + body); close()
+        // Always free the slot, even when the peer is already gone and the send fails;
+        // otherwise a dead socket held one of the 8 client slots until its 180 s deadline.
+        defer { close() }
+        try await send(Data((header + "\r\n").utf8) + body)
     }
     func beginStream() async throws {
         try await send(Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n".utf8))

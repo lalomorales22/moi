@@ -216,7 +216,7 @@ struct ContentView: View {
                 LabeledContent("Server", value: model.server.status)
                 LabeledContent("Completed", value: String(model.server.completed))
                 LabeledContent("Errors / rejected", value: String(model.server.failed))
-                LabeledContent("Active connections", value: String(model.server.connectionCount))
+                LabeledContent("Active connections", value: "\(model.server.connectionCount) / \(HTTPServer.maxConnections)")
                 if let error = model.server.lastError { Text(error).font(.caption).foregroundStyle(.orange) }
                 ForEach(model.server.peers, id: \.self) { peer in Text(peer).font(.caption.monospaced()).foregroundStyle(mint) }
             }
