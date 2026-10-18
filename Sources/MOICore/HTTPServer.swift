@@ -50,26 +50,66 @@ public struct RequestEvent: Identifiable, Sendable {
 
     public init(engine: InferenceEngine) { self.engine = engine }
 
+    /// How many times an "address in use" bind is retried, and how long to wait before each try.
+    nonisolated public static let maxRestartAttempts = 5
+    nonisolated public static func restartDelaySeconds(attempt: Int) -> UInt64 { UInt64(min(8, 1 << max(0, attempt - 1))) }   // 1, 2, 4, 8, 8
+    nonisolated static func isAddressInUse(_ error: NWError) -> Bool {
+        if case .posix(let code) = error { return code == .EADDRINUSE }
+        return false
+    }
+
+    private struct StartRequest { let port: UInt16; let key: String; let modelID: String; let name: String }
+    /// Listeners that were cancelled but haven't reported `.cancelled` yet (they may still hold the port).
+    private var retiring: [ObjectIdentifier: NWListener] = [:]
+    /// A start requested while an old listener was still shutting down; launched once it's gone.
+    private var pendingStart: StartRequest?
+    private var lastStart: StartRequest?
+    private var restartAttempts = 0
+    private var restartTask: Task<Void, Never>?
+    /// True from `start()` until the listener is ready (including deferred starts and bind retries).
+    public var isStarting: Bool { !running && (pendingStart != nil || restartTask != nil || listener != nil) }
+
     public func start(port: UInt16, key: String, modelID: String, name: String = "MOI") throws {
-        guard listener == nil else { return }
+        guard listener == nil, pendingStart == nil, restartTask == nil else { return }
         guard !busy else { throw MOIError(409, "Waiting for inference to stop.") }
-        guard key.utf8.count >= 24, port >= 1024, let endpoint = NWEndpoint.Port(rawValue: port) else { throw MOIError(400, "Use a key with at least 24 characters and a port from 1024 to 65535.") }
+        guard key.utf8.count >= 24, port >= 1024, NWEndpoint.Port(rawValue: port) != nil else { throw MOIError(400, "Use a key with at least 24 characters and a port from 1024 to 65535.") }
+        restartAttempts = 0
+        lastError = nil
+        let request = StartRequest(port: port, key: key, modelID: modelID, name: name)
+        if !retiring.isEmpty {
+            // The previous listener is still releasing the port: start as soon as it reports cancelled.
+            pendingStart = request
+            status = "Starting"
+            onChange?()
+            return
+        }
+        try launch(request)
+    }
+
+    private func launch(_ request: StartRequest) throws {
+        guard let endpoint = NWEndpoint.Port(rawValue: request.port) else { throw MOIError(400, "Use a port from 1024 to 65535.") }
         pairing.reset()
         try pairing.refresh()
-        self.key = key; self.modelID = modelID
+        self.key = request.key; self.modelID = request.modelID
+        lastStart = request
         let parameters = NWParameters.tcp
         parameters.includePeerToPeer = false
+        // SO_REUSEADDR: MOI closes every connection first (Connection: close), so the port keeps
+        // TIME_WAIT entries for ~30 s after clients disconnect. Without reuse, restarting the
+        // server in that window fails with EADDRINUSE ("Address already in use").
+        parameters.allowLocalEndpointReuse = true
         let listener = try NWListener(using: parameters, on: endpoint)
-        listener.service = NWListener.Service(name: name, type: "_moi._tcp")
+        listener.service = NWListener.Service(name: request.name, type: "_moi._tcp")
         self.listener = listener
         status = "Starting"
         listener.stateUpdateHandler = { [weak self, weak listener] state in
             Task { @MainActor in
-                guard let self, self.listener === listener else { return }
+                guard let self, let listener, self.listener === listener else { return }
                 switch state {
-                case .ready: self.running = true; self.startedAt = Date(); self.status = "Serving"
-                case .failed(let error): self.stop(); self.status = error.localizedDescription
-                case .waiting(let error): self.running = false; self.status = error.localizedDescription
+                case .ready:
+                    self.running = true; self.restartAttempts = 0; self.startedAt = Date(); self.status = "Serving"
+                case .failed(let error): self.listenerError(error, listener: listener, failed: true)
+                case .waiting(let error): self.listenerError(error, listener: listener, failed: false)
                 default: break
                 }
                 self.onChange?()
@@ -95,8 +135,74 @@ public struct RequestEvent: Identifiable, Sendable {
         onChange?()
     }
 
+    private func listenerError(_ error: NWError, listener: NWListener, failed: Bool) {
+        if Self.isAddressInUse(error), restartAttempts < Self.maxRestartAttempts, let request = lastStart {
+            restartAttempts += 1
+            let delay = Self.restartDelaySeconds(attempt: restartAttempts)
+            retire(listener)
+            self.listener = nil; running = false
+            status = "Port \(request.port) is still in use. Retrying in \(delay) s (\(restartAttempts)/\(Self.maxRestartAttempts))…"
+            restartTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
+                guard let self, !Task.isCancelled else { return }
+                self.restartTask = nil
+                self.relaunch(request)
+            }
+        } else if failed {
+            stop()
+            status = error.localizedDescription
+            lastError = Self.isAddressInUse(error)
+                ? "Port \((lastStart?.port).map(String.init) ?? "") is in use by something else. Wait a minute or choose another port."
+                : error.localizedDescription
+        } else {
+            running = false; status = error.localizedDescription
+        }
+    }
+
+    /// Launches now, or once retiring listeners have released the port.
+    private func relaunch(_ request: StartRequest) {
+        guard listener == nil else { return }
+        if !retiring.isEmpty { pendingStart = request; onChange?(); return }
+        do { try launch(request) }
+        catch { status = error.localizedDescription; lastError = error.localizedDescription; onChange?() }
+    }
+
+    /// Cancels a listener and keeps it until it reports `.cancelled`, so a restart never races it.
+    private func retire(_ old: NWListener) {
+        let id = ObjectIdentifier(old)
+        retiring[id] = old
+        old.newConnectionHandler = { connection in connection.cancel() }
+        old.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .cancelled, .failed: Task { @MainActor in self?.retired(id) }
+            default: break
+            }
+        }
+        old.cancel()
+        // Safety net: never wait more than 2 s for the cancellation callback.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            self?.retired(id)
+        }
+    }
+
+    private func retired(_ id: ObjectIdentifier) {
+        guard let old = retiring.removeValue(forKey: id) else { return }
+        old.stateUpdateHandler = nil
+        old.newConnectionHandler = nil
+        if retiring.isEmpty, let request = pendingStart {
+            pendingStart = nil
+            relaunch(request)
+        }
+        onChange?()
+    }
+
     public func stop() {
-        listener?.cancel(); listener = nil; running = false; status = "Offline"
+        restartTask?.cancel(); restartTask = nil
+        pendingStart = nil
+        restartAttempts = 0
+        if let old = listener { retire(old) }
+        listener = nil; running = false; status = "Offline"
         pairing.reset()
         let current = Array(clients.values)
         for client in current { client.close() }

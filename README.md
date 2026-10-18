@@ -77,7 +77,7 @@ Build logs and non-secret setup receipts are stored in ignored `.cache/setup-*` 
 
 ### After setup
 
-The automatic setup request is consumed once. After a later app restart, open **Model → Load model → Station → Start serving**. Locking the iPhone or leaving the app stops serving; return to MOI and tap **Start serving** again if the model is still loaded. Serving keeps the screen awake.
+The automatic setup request is consumed once. After a later app restart, open **Model → Load model → Station → Start serving**. Locking the iPhone or leaving the app pauses serving; when you return to MOI it resumes automatically if the model is still loaded (if the port is briefly busy, MOI retries for a few seconds). Serving keeps the screen awake.
 
 If you used `--app-only`, select/download a model in **Model**, tap **Load model**, then **Start serving** in Station. You can also run the full `./start.sh` to prepare it automatically.
 

@@ -106,4 +106,57 @@ final class ServerTests: XCTestCase {
         XCTAssertFalse(server.running)
         XCTAssertEqual(server.connectionCount, 0)
     }
+
+    @MainActor func testRestartOnSamePortAfterClientConnection() async throws {
+        let server = HTTPServer(engine: InferenceEngine())
+        let key = "moi_" + String(repeating: "0f1e2d3c", count: 8)
+        let port = UInt16.random(in: 40001...52000)
+        defer { server.stop() }
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 3
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        func health() async throws -> Int {
+            var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/health")!)
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            let (_, response) = try await session.data(for: request)
+            return (response as! HTTPURLResponse).statusCode
+        }
+        func waitUntilServing(_ label: String) async throws {
+            for _ in 0..<500 where !server.running { try await Task.sleep(nanoseconds: 20_000_000) }
+            XCTAssertTrue(server.running, "\(label): server should be serving, status: \(server.status)")
+        }
+
+        try server.start(port: port, key: key, modelID: "moi-test", name: "MOI restart test")
+        try await waitUntilServing("first start")
+        // MOI closes each connection first, leaving a TIME_WAIT entry on the port.
+        let first = try await health()
+        XCTAssertEqual(first, 200)
+
+        // Stop and restart immediately: the old listener may still be retiring; the start must be
+        // deferred (not dropped) and the bind must succeed despite TIME_WAIT.
+        server.stop()
+        XCTAssertFalse(server.running)
+        try server.start(port: port, key: key, modelID: "moi-test", name: "MOI restart test")
+        XCTAssertTrue(server.isStarting || server.running)
+        try await waitUntilServing("restart")
+        XCTAssertNil(server.lastError)
+        let second = try await health()
+        XCTAssertEqual(second, 200)
+
+        // Stopping while a start is pending cancels it.
+        server.stop()
+        try server.start(port: port, key: key, modelID: "moi-test", name: "MOI restart test")
+        server.stop()
+        try await Task.sleep(nanoseconds: 2_500_000_000)
+        XCTAssertFalse(server.running)
+        XCTAssertFalse(server.isStarting)
+    }
+
+    func testRestartBackoff() {
+        XCTAssertEqual((1...6).map { HTTPServer.restartDelaySeconds(attempt: $0) }, [1, 2, 4, 8, 8, 8])
+        XCTAssertTrue(HTTPServer.isAddressInUse(.posix(.EADDRINUSE)))
+        XCTAssertFalse(HTTPServer.isAddressInUse(.posix(.ECONNREFUSED)))
+        XCTAssertGreaterThan(HTTPServer.maxRestartAttempts, 0)
+    }
 }
