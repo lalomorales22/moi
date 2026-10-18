@@ -54,8 +54,16 @@ public actor InferenceEngine {
         let history = request.messages.dropLast().filter { $0.role != "system" }.map { Message($0.content, role: $0.role == "assistant" ? .model : .user) }
         let config = ConversationConfig(
             systemMessage: system.map { Message($0, role: .system) }, initialMessages: history,
-            samplerConfig: try SamplerConfig(topK: 40, topP: 0.95, temperature: Float(request.temperature ?? 0.7)),
+            // LiteRT-LM's sampler seed defaults to 0, which made every request with the same
+            // prompt sample the same tokens. A fresh seed per request restores real sampling.
+            samplerConfig: try SamplerConfig(topK: 40, topP: 0.95, temperature: Float(request.temperature ?? 0.7),
+                                             seed: Int.random(in: 1...Int(Int32.max))),
             thinkingConfig: ThinkingConfig(enableThinking: false, thinkingTokenBudget: 0), automaticToolCalling: false)
+        // Small models (Gemma 3 270M, Qwen 3 0.6B) easily loop on one phrase. A mild penalty on
+        // tokens they already generated, plus a ban on repeating any 5-token run within a reply,
+        // keeps answers varied without disturbing short structured lines.
+        let repetition = RepetitionPenaltyConfig(repetitionPenalty: 1.1, windowSize: 64)
+        let noRepeat = NoRepeatNgramConfig(noRepeatNgramSize: 5, windowSize: 256)
         let conversation = try await engine.createConversation(with: config)
         active = conversation
         let start = Date()
@@ -64,7 +72,10 @@ public actor InferenceEngine {
         return try await withTaskCancellationHandler(operation: {
             do {
                 try Task.checkCancellation()
-                for try await chunk in conversation.sendMessageStream(Message(request.messages.last!.content), maxOutputTokens: request.outputLimit) {
+                for try await chunk in conversation.sendMessageStream(Message(request.messages.last!.content),
+                                                                      repetitionPenaltyConfig: repetition,
+                                                                      noRepeatNgramConfig: noRepeat,
+                                                                      maxOutputTokens: request.outputLimit) {
                     try Task.checkCancellation()
                     let value = chunk.toString
                     if !value.isEmpty {
