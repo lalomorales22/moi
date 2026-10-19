@@ -12,13 +12,16 @@ public struct ChatRequest: Decodable, Sendable {
     public let stream: Bool?
     public let max_tokens: Int?
     public let temperature: Double?
+    public let top_p: Double?
     public var outputLimit: Int { max_tokens ?? 128 }
 
-    public static func parse(_ body: Data) throws -> ChatRequest {
+    /// `maxInputBytes` defaults to the 2,048-byte starter cap (the LAN server always uses it);
+    /// an in-process client that knows the loaded model passes `ModelSpec.maxInputBytes`.
+    public static func parse(_ body: Data, maxInputBytes: Int = 2048) throws -> ChatRequest {
         guard let raw = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else {
             throw MOIError(400, "Expected a JSON object.")
         }
-        let supported: Set<String> = ["model", "messages", "stream", "max_tokens", "temperature"]
+        let supported: Set<String> = ["model", "messages", "stream", "max_tokens", "temperature", "top_p"]
         let extra = Set(raw.keys).subtracting(supported)
         guard extra.isEmpty else { throw MOIError(400, "Unsupported fields: \(extra.sorted().joined(separator: ", ")). MOI supports text chat only.") }
         let request: ChatRequest
@@ -29,10 +32,12 @@ public struct ChatRequest: Decodable, Sendable {
         }
         guard (1...256).contains(request.outputLimit) else { throw MOIError(400, "max_tokens must be 1–256.") }
         guard (0...2).contains(request.temperature ?? 0.7) else { throw MOIError(400, "temperature must be 0–2.") }
+        guard (0.05...1).contains(request.top_p ?? 0.9) else { throw MOIError(400, "top_p must be 0.05–1.") }
         // A conservative byte cap leaves room for output in our 1,024-token context,
         // including byte-heavy scripts. The runtime remains the authority on token fit.
-        guard request.messages.reduce(0, { $0 + $1.content.utf8.count }) <= 2048 else {
-            throw MOIError(413, "Message text exceeds MOI's 2,048-byte starter limit.")
+        let cap = min(max(maxInputBytes, 256), 8192)
+        guard request.messages.reduce(0, { $0 + $1.content.utf8.count }) <= cap else {
+            throw MOIError(413, cap == 2048 ? "Message text exceeds MOI's 2,048-byte starter limit." : "Message text exceeds this model's \(cap)-byte limit.")
         }
         var expected = "user"
         for (index, message) in request.messages.enumerated() {

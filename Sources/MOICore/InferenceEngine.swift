@@ -29,7 +29,7 @@ public actor InferenceEngine {
         ExperimentalFlags.enableBenchmark = true
         let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("MOI/\(spec.id)")
         try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
-        let config = try EngineConfig(modelPath: file.path, backend: spec.gpu ? .gpu : .cpu(threadCount: 2), maxNumTokens: 1024, cacheDir: cache.path)
+        let config = try EngineConfig(modelPath: file.path, backend: spec.gpu ? .gpu : .cpu(threadCount: 2), maxNumTokens: spec.contextTokens, cacheDir: cache.path)
         let candidate = Engine(engineConfig: config)
         try await candidate.initialize()
         try Task.checkCancellation()
@@ -56,7 +56,7 @@ public actor InferenceEngine {
             systemMessage: system.map { Message($0, role: .system) }, initialMessages: history,
             // LiteRT-LM's sampler seed defaults to 0, which made every request with the same
             // prompt sample the same tokens. A fresh seed per request restores real sampling.
-            samplerConfig: try SamplerConfig(topK: 40, topP: 0.9, temperature: Float(request.temperature ?? 0.7),
+            samplerConfig: try SamplerConfig(topK: 40, topP: Float(request.top_p ?? 0.9), temperature: Float(request.temperature ?? 0.7),
                                              seed: Int.random(in: 1...Int(Int32.max))),
             thinkingConfig: ThinkingConfig(enableThinking: false, thinkingTokenBudget: 0), automaticToolCalling: false)
         // Small models (Gemma 3 270M, Qwen 3 0.6B) easily loop on one phrase. A mild penalty on

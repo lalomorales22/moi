@@ -98,6 +98,11 @@ For other API clients, use **Copy API base URL** under Client Settings and **Cop
 | Qwen 3 0.6B INT4 | 345 MB | Metal | Tested on iPhone 11; no Hugging Face account required |
 | Gemma 3 270M Q8 | 304 MB | CPU, 2 threads | Public mirror; no account or token required |
 | Gemma 4 E2B | 2.01 GB | Metal | Hidden on iPhone 11; experimental option only on phones with 6+ GB RAM |
+| Qwen 3 1.7B INT4 | 977 MB | Metal | Apache 2.0; phones with 4+ GB RAM; 2,048-token context |
+| SmolLM3 3B Q4 | 2.00 GB | Metal | Apache 2.0; experimental, 6+ GB RAM; 2,048-token context |
+| Ministral 3 3B Q4 | 2.34 GB | Metal | Apache 2.0; experimental, 8+ GB RAM; 2,048-token context |
+
+Every catalog file keeps each internal section under 2 GiB, which iOS needs to load it; Gemma 4 E4B and Qwen 3 4B exceed that, so they are not listed. Models above 1024 context take `ChatRequest.parse(body, maxInputBytes: spec.maxInputBytes)` in-process; the LAN server keeps the 2,048-byte cap.
 
 File size is not working memory. A model advertised as “E2B” can contain more stored parameters than its effective parameter count. The 64 GB storage capacity is not the phone’s RAM.
 
@@ -145,7 +150,7 @@ The key input is hidden; paste the key and press Return. `MOI_BASE_URL` here doe
 
 Supported chat fields: `model`, `messages`, `stream`, `max_tokens`, `temperature`. `model: "moi"` aliases the loaded model. History supports an optional initial system message followed by alternating text user/assistant messages, ending in a user message. Each HTTP request gets a fresh inference conversation; pass previous turns explicitly.
 
-Limits: 1,024-token context, 2,048 UTF-8 bytes of message text, 1–256 output tokens (128 default), 32 messages, 16 KB request body, 8 simultaneous sockets, one active generation, and a 180-second request deadline. The runtime can reject a prompt whose actual tokenization exceeds its context. Overlapping inference requests receive `429` with `Retry-After: 5`. Serious/critical thermal pressure returns `503` for new inference. Backgrounding, memory warnings, and server shutdown cancel work.
+Limits: 1,024-token context (2,048 for models above 900 MB), 2,048 UTF-8 bytes of message text, 1–256 output tokens (128 default), 32 messages, 16 KB request body, 8 simultaneous sockets, one active generation, and a 180-second request deadline. The runtime can reject a prompt whose actual tokenization exceeds its context. Overlapping inference requests receive `429` with `Retry-After: 5`. Serious/critical thermal pressure returns `503` for new inference. Backgrounding, memory warnings, and server shutdown cancel work.
 
 Tools, images, audio, embeddings, JSON response schemas, third-party browser origins, and other OpenAI fields are not supported in v0.1. Unsupported fields receive an explicit `400`. Streaming failures after headers are sent appear as an SSE error object and a closed connection. Token usage is included only when the runtime provides it; throughput is not estimated from word counts.
 

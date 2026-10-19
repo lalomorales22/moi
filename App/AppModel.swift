@@ -35,7 +35,7 @@ import MOICore
     var installed: Bool { FileManager.default.fileExists(atPath: file(for: selected).path) }
     func compatibilityIssue(for model: ModelSpec) -> String? {
         guard stats.totalGB > 0, stats.totalGB < model.minimumDeviceMemoryGB else { return nil }
-        return "This Gemma 4 build exceeded the iPhone 11’s app memory limit. MOI enables it only on phones with at least 6 GB RAM for further testing. This phone has \(stats.totalGB) GB; choose Qwen 3 instead."
+        return "\(model.name) needs a phone with at least \(model.minimumDeviceMemoryGB) GB RAM (Gemma 4 E2B already exceeded the iPhone 11’s app memory limit). This phone has \(stats.totalGB) GB; choose a smaller model."
     }
 
     init() {
