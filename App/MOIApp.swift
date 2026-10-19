@@ -62,7 +62,7 @@ struct ContentView: View {
                 if model.isWorking { HStack { ProgressView().tint(mint); Text(model.operation).font(.caption) } }
                 Button(action: { if model.loadedID == nil { tab = 1 } else { model.toggleServer() } }) {
                     HStack {
-                        Text(model.loadedID == nil ? "Set up this phone" : model.serving ? "Stop serving" : "Start serving")
+                        Text(model.loadedID == nil ? "Set up this phone" : model.serving ? "Stop serving" : model.server.isStarting ? "Starting… tap to cancel" : "Start serving")
                         Spacer(); Image(systemName: model.serving ? "stop.fill" : "arrow.right")
                     }.font(.headline).padding(17).foregroundStyle(ink).background(mint, in: RoundedRectangle(cornerRadius: 15))
                 }.disabled(model.isWorking || model.server.busy && !model.serving)
@@ -91,7 +91,7 @@ struct ContentView: View {
                 }
                 Text("Measured by the inference engine. Your first request fills this in.").font(.caption).foregroundStyle(.secondary)
             }
-            Text("Keep MOI open and the phone powered. Serving keeps the display awake; leaving the app stops the server.")
+            Text("Keep MOI open and the phone powered. Serving keeps the display awake; leaving the app pauses the server, and it resumes when you return.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
     }
@@ -216,7 +216,7 @@ struct ContentView: View {
                 LabeledContent("Server", value: model.server.status)
                 LabeledContent("Completed", value: String(model.server.completed))
                 LabeledContent("Errors / rejected", value: String(model.server.failed))
-                LabeledContent("Active connections", value: String(model.server.connectionCount))
+                LabeledContent("Active connections", value: "\(model.server.connectionCount) / \(HTTPServer.maxConnections)")
                 if let error = model.server.lastError { Text(error).font(.caption).foregroundStyle(.orange) }
                 ForEach(model.server.peers, id: \.self) { peer in Text(peer).font(.caption.monospaced()).foregroundStyle(mint) }
             }

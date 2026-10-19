@@ -102,7 +102,7 @@ function showConnected(model) {
   $('disconnect').hidden = false;
   $('badge').textContent = 'Connected';
   $('status-dot').classList.add('online');
-  const names = { 'qwen3-0.6b': 'Qwen 3 · on your iPhone', 'gemma-3-270m': 'Gemma 3 · on your iPhone', 'gemma-4-e2b': 'Gemma 4 · on your iPhone' };
+  const names = { 'qwen3-0.6b': 'Qwen 3 · on your iPhone', 'gemma-3-270m': 'Gemma 3 · on your iPhone', 'gemma-4-e2b': 'Gemma 4 · on your iPhone', 'qwen3-1.7b': 'Qwen 3 1.7B · on your iPhone', 'smollm3-3b': 'SmolLM3 · on your iPhone', 'ministral-3-3b': 'Ministral 3 · on your iPhone' };
   $('model-label').textContent = names[model] || model;
   status('connection-status', (isPairedSession ? 'Paired automatically · ' : 'Connected · ') + model);
   status('request-status', '');

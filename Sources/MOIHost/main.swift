@@ -6,7 +6,7 @@ import MOICore
         let args = CommandLine.arguments
         guard args.count >= 3, let spec = ModelSpec.catalog.first(where: { $0.id == args[1] }),
               let key = ProcessInfo.processInfo.environment["MOI_API_KEY"], key.count >= 24 else {
-            print("Usage: MOI_API_KEY=<24+ character key> swift run moi-host <qwen3-0.6b|gemma-3-270m|gemma-4-e2b> <model.litertlm> [port]")
+            print("Usage: MOI_API_KEY=<24+ character key> swift run moi-host <\(ModelSpec.catalog.map(\.id).joined(separator: "|"))> <model.litertlm> [port]")
             return
         }
         let engine = InferenceEngine()

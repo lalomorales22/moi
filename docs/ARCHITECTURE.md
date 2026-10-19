@@ -16,7 +16,7 @@ Turn a spare iPhone into a small, local inference appliance. The phone downloads
 
 ## Operating limits
 
-The app must remain in the foreground. Serving disables automatic screen lock. Backgrounding stops the listener and cancels work. iOS controls suspension, memory limits, and thermal throttling; this is not an unattended background daemon. Use trusted local Wi-Fi: HTTP is unencrypted. Internet exposure and port forwarding are outside v0.1.
+The app must remain in the foreground. Serving disables automatic screen lock. Backgrounding stops the listener and cancels work; returning to the foreground resumes serving if a model is still loaded. The listener sets `allowLocalEndpointReuse` (SO_REUSEADDR) because MOI closes connections first and leaves TIME_WAIT entries on the port, waits for a cancelled listener to report `.cancelled` before binding again, and retries `EADDRINUSE` with 1/2/4/8/8 s backoff. iOS controls suspension, memory limits, and thermal throttling; this is not an unattended background daemon. Use trusted local Wi-Fi: HTTP is unencrypted. Internet exposure and port forwarding are outside v0.1.
 
 Keep the context at 1,024 tokens initially. Process one generation at a time. Reject new inference while the phone reports serious or critical thermal pressure. Memory pressure stops serving and releases the engine once active work has drained.
 

@@ -40,6 +40,23 @@ final class APITests: XCTestCase {
             XCTAssertThrowsError(try ChatRequest.parse(APIJSON.encode(valid.merging(patch) { _, new in new })))
         }
     }
+    func testPerModelInputCapAndTopP() throws {
+        let long = String(repeating: "a", count: 3000)
+        let body = try APIJSON.encode(["model": "moi", "messages": [["role": "user", "content": long]], "top_p": 0.8])
+        XCTAssertThrowsError(try ChatRequest.parse(body))
+        XCTAssertEqual(try ChatRequest.parse(body, maxInputBytes: 4096).top_p, 0.8)
+        XCTAssertThrowsError(try ChatRequest.parse(APIJSON.encode(["model": "moi", "messages": [["role": "user", "content": "hi"]], "top_p": 0])))
+    }
+    func testCatalogLimits() {
+        for spec in ModelSpec.catalog {
+            XCTAssertEqual(spec.sha256.count, 64)
+            XCTAssertTrue(spec.bytes < 2_400_000_000)
+            XCTAssertEqual(spec.maxInputBytes, spec.contextTokens * 2)
+        }
+        XCTAssertEqual(ModelSpec.catalog.first { $0.id == "qwen3-0.6b" }?.contextTokens, 1024)
+        XCTAssertEqual(ModelSpec.catalog.first { $0.id == "qwen3-1.7b" }?.contextTokens, 2048)
+        XCTAssertEqual(ModelSpec.catalog.first { $0.id == "ministral-3-3b" }?.minimumDeviceMemoryGB, 8)
+    }
     func testTruncatedModelRejectedBeforeRuntime() throws {
         let temp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try Data("not a model".utf8).write(to: temp)

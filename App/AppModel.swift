@@ -18,6 +18,8 @@ import MOICore
     private var timer: Timer?
     private var job: Task<Void, Never>?
     private var foreground = true
+    /// Set when MOI was serving (or starting) as it went to the background; serving resumes on return.
+    private var resumeOnForeground = false
     private var installerAttempted = false
     var selected: ModelSpec { ModelSpec.catalog.first { $0.id == selectedID } ?? ModelSpec.catalog[0] }
     var availableModels: [ModelSpec] { ModelSpec.catalog.filter { compatibilityIssue(for: $0) == nil } }
@@ -33,7 +35,7 @@ import MOICore
     var installed: Bool { FileManager.default.fileExists(atPath: file(for: selected).path) }
     func compatibilityIssue(for model: ModelSpec) -> String? {
         guard stats.totalGB > 0, stats.totalGB < model.minimumDeviceMemoryGB else { return nil }
-        return "This Gemma 4 build exceeded the iPhone 11’s app memory limit. MOI enables it only on phones with at least 6 GB RAM for further testing. This phone has \(stats.totalGB) GB; choose Qwen 3 instead."
+        return "\(model.name) needs a phone with at least \(model.minimumDeviceMemoryGB) GB RAM (Gemma 4 E2B already exceeded the iPhone 11’s app memory limit). This phone has \(stats.totalGB) GB; choose a smaller model."
     }
 
     init() {
@@ -43,7 +45,7 @@ import MOICore
         server.onChange = { [weak self] in
             guard let self else { return }
             self.serving = self.server.running
-            UIApplication.shared.isIdleTimerDisabled = self.server.running || self.isWorking
+            UIApplication.shared.isIdleTimerDisabled = self.server.running || self.server.isStarting || self.isWorking
             self.revision += 1
         }
         server.canGenerate = { ProcessInfo.processInfo.thermalState == .nominal || ProcessInfo.processInfo.thermalState == .fair }
@@ -204,7 +206,7 @@ import MOICore
         }
     }
     func toggleServer() {
-        if serving || server.status == "Starting" { server.stop(); notice = "Server stopped."; return }
+        if serving || server.isStarting { server.stop(); resumeOnForeground = false; notice = "Server stopped."; return }
         guard let loadedID, let number = UInt16(port), number >= 1024 else { error = "Load a model and use a port from 1024 to 65535."; return }
         do { try server.start(port: number, key: key, modelID: loadedID); notice = "Keep MOI open while serving. Connect clients on the same trusted network." }
         catch { self.error = error.localizedDescription }
@@ -226,15 +228,47 @@ import MOICore
     func sceneChanged(_ phase: ScenePhase) {
         // Permission dialogs make the scene inactive without backgrounding the app.
         foreground = phase != .background
-        if phase == .active { prepareInstallerSetup() }
+        if phase == .active {
+            prepareInstallerSetup()
+            resumeServingIfNeeded()
+        }
         if phase == .background {
+            resumeOnForeground = (serving || server.isStarting) && loadedID != nil
             server.stop(); job?.cancel()
             Task { await engine.cancel() }
             UIApplication.shared.isIdleTimerDisabled = false
-            notice = "Serving paused because MOI left the foreground. Tap Start serving when you return."
+            notice = resumeOnForeground
+                ? "Serving paused while MOI is in the background. It resumes automatically when you return."
+                : "MOI left the foreground."
         }
     }
+
+    /// Restarts serving after returning to the foreground if MOI was serving when it left and the
+    /// model is still loaded. The server reuses the port and retries briefly if it's still busy.
+    private func resumeServingIfNeeded() {
+        guard resumeOnForeground else { return }
+        guard loadedID != nil else {
+            resumeOnForeground = false
+            notice = "The model was unloaded while MOI was in the background. Load it again to serve."
+            return
+        }
+        guard !serving, !server.isStarting else { resumeOnForeground = false; return }
+        guard !isWorking, !server.busy else {
+            // A cancelled generation may still be unwinding; try again shortly while in the foreground.
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard let self, self.foreground else { return }
+                self.resumeServingIfNeeded()
+            }
+            return
+        }
+        resumeOnForeground = false
+        error = nil
+        toggleServer()
+        if error == nil { notice = "Welcome back. Serving resumed; keep MOI open while clients connect." }
+    }
     func memoryWarning() {
+        resumeOnForeground = false
         server.stop(); job?.cancel()
         notice = "iOS reported memory pressure. Serving stopped; choose a smaller model."
         Task {

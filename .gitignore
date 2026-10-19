@@ -14,3 +14,4 @@ MOI.xcodeproj/
 __pycache__/
 *.pyc
 .swiftpm/xcode/
+Config/Signing.local.xcconfig
